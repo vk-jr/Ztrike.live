@@ -1,0 +1,53 @@
+{
+  "name": "nextjs-shadcn",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "node node_modules/next/dist/bin/next dev -H 0.0.0.0",
+    "build": "node node_modules/next/dist/bin/next build",
+    "start": "node node_modules/next/dist/bin/next start",
+    "lint": "bunx biome lint --write && bunx tsc --noEmit",
+    "format": "bunx biome format --write",
+    "dev:all": "pwsh .\\dev-script.ps1",
+    "firebase:emulate": "firebase emulators:start",
+    "dev:firebase": "pwsh -NoProfile -Command \"$dev = Start-Process pwsh -ArgumentList '-NoProfile','-Command','npm run dev' -PassThru; $emulator = Start-Process pwsh -ArgumentList '-NoProfile','-Command','firebase emulators:start' -PassThru; Wait-Process -Id $dev.Id,$emulator.Id\""
+  },
+  "dependencies": {
+    "@firebase/auth": "^1.10.6",
+    "@firebase/firestore": "^4.7.16",
+    "@radix-ui/react-avatar": "^1.1.10",
+    "@radix-ui/react-dialog": "^1.1.14",
+    "@radix-ui/react-dropdown-menu": "^2.1.15",
+    "@radix-ui/react-separator": "^1.1.7",
+    "@radix-ui/react-slot": "^1.2.3",
+    "@radix-ui/react-tabs": "^1.1.12",
+    "@radix-ui/react-toast": "^1.2.14",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "default-connector": "link:C:/Users/amanx/AppData/Local/pnpm/global/5/node_modules/dataconnect-generated/js/default-connector",
+    "firebase": "^11.8.1",
+    "lucide-react": "^0.475.0",
+    "next": "^15.3.2",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-firebase-hooks": "^5.1.1",
+    "styled-jsx": "^5.1.7",
+    "tailwind-merge": "^3.3.0",
+    "tailwindcss-animate": "^1.0.7"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "1.9.4",
+    "@eslint/eslintrc": "^3.3.1",
+    "@next/eslint-plugin-next": "^15.3.2",
+    "@types/node": "^20.17.50",
+    "@types/react": "^18.3.22",
+    "@types/react-dom": "^18.3.7",
+    "critters": "^0.0.25",
+    "eslint": "^9.27.0",
+    "eslint-config-next": "15.1.7",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "postcss": "^8.5.3",
+    "tailwindcss": "^3.4.17",
+    "typescript": "^5.8.3"
+  }
+}
