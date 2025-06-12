@@ -1,16 +1,11 @@
-import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import AuthLayout from "@/components/auth/AuthLayout";
-import { Chatbot } from "@/components/Chatbot";
+import { ChatbotWrapper } from "@/components/ChatbotWrapper";
 import { Toaster } from "@/components/ui/toaster";
+import { metadata } from './metadata';
 
 const inter = Inter({ subsets: ["latin"] });
-
-export const metadata: Metadata = {
-  title: "ZTRIKE - Sports Social Network",
-  description: "Connect with athletes, coaches, and sports professionals",
-};
 
 export default function RootLayout({
   children,
@@ -23,7 +18,7 @@ export default function RootLayout({
         <AuthLayout>
           {children}
         </AuthLayout>
-        <Chatbot />
+        <ChatbotWrapper />
         <Toaster />
       </body>
     </html>

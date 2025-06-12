@@ -1,78 +1,70 @@
 "use client";
 
-import { Edit, Share2, Calendar, Trophy, Users, Eye, UserPlus } from "lucide-react";
+import { Edit, Share2, Calendar, Trophy, LineChart, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
-import { 
-  getUserProfile, 
-  getUserTeams, 
-  getUserLeagues, 
-  getSuggestedUsers,
-  createConnection 
-} from "@/lib/db";
+import { getUserProfile, getUserTeams, getUserLeagues } from "@/lib/db";
 import type { UserProfile, Team, League } from "@/types/database";
+import Link from "next/link";
 import PostCreate from "@/components/posts/PostCreate";
 import PostDisplay from "@/components/posts/PostDisplay";
-import PeopleYouMayKnow from "@/components/people/PeopleYouMayKnow";
-import type { LucideIcon } from "lucide-react";
 
-interface StatItem {
-  label: string;
-  value: number;
-  Icon: LucideIcon;
-}
+// Function to calculate win rate
+const calculateWinRate = (wins: number, totalMatches: number): string => {
+  if (totalMatches === 0) return "0%";
+  return `${Math.round((wins / totalMatches) * 100)}%`;
+};
 
-export default function ProfilePage() {
+function ProfilePage() {
   const { user, logout } = useAuth();
   const router = useRouter();
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [teams, setTeams] = useState<Team[]>([]);
   const [leagues, setLeagues] = useState<League[]>([]);
   const [activeTab, setActiveTab] = useState("posts");
-  const [connectionCount, setConnectionCount] = useState(0);
+  const [connectionDetails, setConnectionDetails] = useState<UserProfile[]>([]);
 
   useEffect(() => {
-    const loadUserProfile = async () => {
+    const fetchUserData = async () => {
       if (user) {
         try {
-          const profile = await getUserProfile(user.uid);
-          setUserProfile(profile);
-          setConnectionCount(profile?.connections?.length || 0);
+          const [profile, userTeams, userLeagues] = await Promise.all([
+            getUserProfile(user.uid),
+            getUserTeams(user.uid),
+            getUserLeagues(user.uid)
+          ]);
+          if (profile) {
+            setUserProfile(profile);
+            // Fetch connection details
+            const connectionProfiles = await Promise.all(
+              (profile.connections || []).map(id => getUserProfile(id))
+            );
+            setConnectionDetails(connectionProfiles.filter(Boolean) as UserProfile[]);
+          }
+          setTeams(userTeams || []);
+          setLeagues(userLeagues || []);
         } catch (error) {
-          console.error('Error loading user profile:', error);
-        } finally {
-          setIsLoading(false);
+          console.error('Error fetching user data:', error);
         }
       }
     };
-
-    loadUserProfile();
-
-    // Add event listener for connection count updates
-    const handleConnectionCountUpdate = (event: CustomEvent) => {
-      setConnectionCount(event.detail.count);
-    };
-
-    window.addEventListener('connectionCountUpdated', handleConnectionCountUpdate as EventListener);
-
-    return () => {
-      window.removeEventListener('connectionCountUpdated', handleConnectionCountUpdate as EventListener);
-    };
+    fetchUserData();
   }, [user]);
 
-  // Add a function to update connection count
-  const updateConnectionCount = (newCount: number) => {
-    setConnectionCount(newCount);
-  };
+  useEffect(() => {
+    if (!user) {
+      router.push("/sign-in");
+    }
+  }, [user, router]);
 
-  if (!user || !userProfile) {
+  if (!user) {
     return null;
   }
 
@@ -88,143 +80,350 @@ export default function ProfilePage() {
     }
   };
 
-  const stats: StatItem[] = [
-    {
-      label: "Connections",
-      value: connectionCount,
-      Icon: Users
-    },
-    {
-      label: "Teams",
-      value: teams.length,
-      Icon: Users
-    },
-    {
-      label: "Leagues",
-      value: leagues.length,
-      Icon: Trophy
-    },
-    {
-      label: "Post Views",
-      value: userProfile?.postViews || 0,
-      Icon: Eye
-    }
-  ];
-
+  // Default athlete/player profile view
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Hero Section with Sports Theme */}
-      <div className="relative bg-gradient-to-r from-blue-600 to-blue-800 pb-32 pt-12">
-        <div className="absolute inset-0 bg-blue-900/20"></div>
-        <div className="absolute inset-0 overflow-hidden">
-          <div className="absolute inset-0" style={{ backgroundImage: 'radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.1) 1px, transparent 1px)', backgroundSize: '20px 20px' }}></div>
-        </div>
-        
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="mt-8 text-center">
-            <Avatar className="h-32 w-32 mx-auto ring-4 ring-white bg-white">
-              <AvatarImage src={userProfile?.photoURL || user?.photoURL || ''} />
-              <AvatarFallback className="text-4xl">
-                {(userProfile?.firstName?.[0] || userProfile?.displayName?.[0] || user?.displayName?.[0] || 'U').toUpperCase()}
-              </AvatarFallback>
-            </Avatar>
-            <div className="mt-4">              <h2 className="text-3xl font-bold text-white">
-                {(userProfile?.firstName || (user?.displayName?.split(' ')[0])) + ' ' + 
-                 (userProfile?.lastName || (user?.displayName?.split(' ').slice(1).join(' ')))}
-              </h2>
-              <p className="mt-2 text-lg text-blue-100">{userProfile?.email || user?.email}</p>
-              <p className="mt-2 text-blue-100">
-                {userProfile?.bio || "No bio added yet"}
-              </p>
-            </div>
+    <div className="w-full min-h-screen bg-gray-50">
+      {/* Cover Image */}
+      <div className="w-full h-[240px] relative">
+        {userProfile?.bannerURL ? (
+          <div className="absolute inset-0">
+            <img 
+              src={userProfile.bannerURL} 
+              alt="Profile Banner" 
+              className="w-full h-full object-cover"
+            />
+            <div className="absolute inset-0 bg-black/10"></div>
           </div>
+        ) : (
+          <div className="w-full h-full bg-[#2563eb]">
+            <div className="absolute inset-0 bg-black/10"></div>
+          </div>
+        )}
+        {/* Profile Image */}
+        <div className="absolute -bottom-16 left-1/2 -translate-x-1/2">
+          <Avatar className="h-[120px] w-[120px] ring-4 ring-white bg-white shadow-lg">
+            <AvatarImage src={user?.photoURL || userProfile?.photoURL || ''} alt={userProfile?.displayName || user?.email || 'Profile'} />
+            <AvatarFallback className="text-4xl bg-gradient-to-br from-blue-500 to-cyan-400 text-white">
+              {userProfile?.displayName?.[0] || user?.email?.[0] || "?"}
+            </AvatarFallback>
+          </Avatar>
+        </div>
+        {/* Action Buttons */}
+        <div className="absolute right-4 bottom-4 sm:right-6 sm:bottom-6 flex flex-col sm:flex-row gap-2">
+          <Button variant="outline" className="bg-white/95 backdrop-blur-sm hover:bg-white">
+            <Share2 className="w-4 h-4 sm:mr-2" />
+            <span className="hidden sm:inline">Share Profile</span>
+          </Button>
+          <Button className="bg-white/95 backdrop-blur-sm hover:bg-white text-black"
+                  onClick={() => router.push('/profile/settings')}
+          >
+            <Edit className="w-4 h-4 sm:mr-2" />
+            <span className="hidden sm:inline">Edit Profile</span>
+          </Button>
         </div>
       </div>
 
-      {/* Stats Bar */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-24 relative grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 space-y-6">
-          <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
-            {stats.map((stat, index) => (
-              <Card key={index}>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">
-                    {stat.label}
+      {/* Profile Content */}
+      <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 mt-20 text-center">
+        <div className="flex flex-col items-center gap-2">
+          <h2 className="text-4xl font-bold text-gray-900">
+            {userProfile?.displayName || user?.displayName || 'Profile'}
+          </h2>
+          <Badge variant="secondary" className="text-sm font-medium">
+            {userProfile?.userType === 'team' ? 'Team Account' : 'Athlete Account'}
+          </Badge>
+          {userProfile?.email && userProfile.email !== userProfile?.displayName && (
+            <p className="text-gray-600 text-base">{userProfile.email}</p>
+          )}
+          <p className="text-gray-700 text-lg leading-relaxed">
+            {userProfile?.bio || "No bio added yet"}
+          </p>
+        </div>
+
+        {/* Stats Grid */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-8">
+          {userProfile?.userType === 'team' ? (
+            <>
+              <div className="bg-gradient-to-br from-blue-50 to-cyan-50 rounded-xl p-4 text-center transition-transform hover:scale-[1.02] duration-200 shadow-sm">
+                <div className="text-2xl font-bold text-blue-600">{userProfile.teamInfo?.matchesPlayed || 0}</div>
+                <div className="text-sm text-gray-600 font-medium">Matches Played</div>
+              </div>
+              <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl p-4 text-center transition-transform hover:scale-[1.02] duration-200 shadow-sm">
+                <div className="text-2xl font-bold text-green-600">{userProfile.teamInfo?.wins || 0}</div>
+                <div className="text-sm text-gray-600 font-medium">Wins</div>
+              </div>
+              <div className="bg-gradient-to-br from-orange-50 to-amber-50 rounded-xl p-4 text-center transition-transform hover:scale-[1.02] duration-200 shadow-sm">
+                <div className="text-2xl font-bold text-orange-600">{userProfile.teamInfo?.players?.length || 0}</div>
+                <div className="text-sm text-gray-600 font-medium">Players</div>
+              </div>
+              <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl p-4 text-center transition-transform hover:scale-[1.02] duration-200 shadow-sm">
+                <div className="text-2xl font-bold text-purple-600">{userProfile.teamInfo?.clean_sheets || 0}</div>
+                <div className="text-sm text-gray-600 font-medium">Clean Sheets</div>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="bg-gradient-to-br from-blue-50 to-cyan-50 rounded-xl p-4 text-center transition-transform hover:scale-[1.02] duration-200 shadow-sm">
+                <div className="text-2xl font-bold text-blue-600">{userProfile?.connections?.length || 0}</div>
+                <div className="text-sm text-gray-600 font-medium">Connections</div>
+              </div>
+              <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl p-4 text-center transition-transform hover:scale-[1.02] duration-200 shadow-sm">
+                <div className="text-2xl font-bold text-purple-600">{teams.length}</div>
+                <div className="text-sm text-gray-600 font-medium">Teams</div>
+              </div>
+              <div className="bg-gradient-to-br from-orange-50 to-amber-50 rounded-xl p-4 text-center transition-transform hover:scale-[1.02] duration-200 shadow-sm">
+                <div className="text-2xl font-bold text-orange-600">{leagues.length}</div>
+                <div className="text-sm text-gray-600 font-medium">Leagues</div>
+              </div>
+              <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl p-4 text-center transition-transform hover:scale-[1.02] duration-200 shadow-sm">
+                <div className="text-2xl font-bold text-green-600">{userProfile?.postViews || 0}</div>
+                <div className="text-sm text-gray-600 font-medium">Post Views</div>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Tabs and Content */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <Tabs defaultValue="posts" className="mt-8">
+          <TabsList className="w-full flex justify-between border-b">
+            <TabsTrigger value="posts" className="flex-1" onClick={() => setActiveTab("posts")}>
+              Posts
+            </TabsTrigger>
+            <TabsTrigger value="performance" className="flex-1" onClick={() => setActiveTab("performance")}>
+              Performance
+            </TabsTrigger>
+            <TabsTrigger value="connections" className="flex-1" onClick={() => setActiveTab("connections")}>
+              Connections
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="posts" className="mt-6">
+            <div className="space-y-6">
+              <PostCreate />
+              <PostDisplay userId={user?.uid ?? ''} showAllPosts={false} />
+            </div>
+          </TabsContent>
+
+          <TabsContent value="performance" className="mt-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Achievements Card */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Trophy size={20} /> Achievements
                   </CardTitle>
-                  <stat.Icon className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{stat.value}</div>
+                <CardContent className="space-y-4">
+                  {userProfile?.achievements && userProfile.achievements.length > 0 ? (
+                    userProfile.achievements.map((achievement, index) => (
+                      <div key={index} className="flex items-center gap-3">
+                        <Trophy size={24} className="text-yellow-500" />
+                        <div>
+                          <div className="font-semibold">{achievement.title}</div>
+                          <div className="text-sm text-gray-600">{achievement.year} • {achievement.description}</div>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-center text-gray-500">No achievements recorded yet.</div>
+                  )}
                 </CardContent>
               </Card>
-            ))}
-          </div>
-          
-          <div className="space-y-4">
-            <PostCreate />
-            <PostDisplay userId={user.uid} />
-          </div>
-        </div>
-        
-        <div className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Trophy className="h-5 w-5 text-yellow-500" />
-                Achievements
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 bg-yellow-50 rounded-full flex items-center justify-center text-2xl">🏆</div>
-                  <div>
-                    <h3 className="font-semibold text-gray-900">League Champion</h3>
-                    <p className="text-sm text-gray-500">2023 • NBA Finals MVP</p>
+
+              {/* Performance Card */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <LineChart size={20} /> Performance Stats
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4 text-sm text-gray-700">
+                  {userProfile?.userType === 'team' ? (
+                    <>
+                      <div className="flex justify-between">
+                        <span>Matches Played</span>
+                        <span className="font-semibold">{userProfile.teamInfo?.matchesPlayed || 0}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Wins</span>
+                        <span className="font-semibold text-green-600">{userProfile.teamInfo?.wins || 0}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Losses</span>
+                        <span className="font-semibold text-red-600">{userProfile.teamInfo?.losses || 0}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Draws</span>
+                        <span className="font-semibold text-blue-600">{userProfile.teamInfo?.draws || 0}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Win Rate</span>
+                        <span className="font-semibold text-blue-600">
+                          {calculateWinRate(
+                            userProfile.teamInfo?.wins || 0,
+                            userProfile.teamInfo?.matchesPlayed || 0
+                          )}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Clean Sheets</span>
+                        <span className="font-semibold text-emerald-600">{userProfile.teamInfo?.clean_sheets || 0}</span>
+                      </div>
+                      {userProfile.teamInfo?.location && (
+                        <div className="flex justify-between">
+                          <span>Home Ground</span>
+                          <span className="font-semibold">{userProfile.teamInfo.location}</span>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      <div className="flex justify-between">
+                        <span>Current Team</span>
+                        <span className="font-semibold text-gray-900">{userProfile?.currentTeam || "Not in a team"}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Position</span>
+                        <span className="font-semibold text-gray-900">{userProfile?.position || "Not specified"}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Matches Played</span>
+                        <span className="font-semibold">{userProfile?.matchesPlayed ?? 0}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Goals</span>
+                        <span className="font-semibold text-green-600">{userProfile?.Goals ?? 0}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Assists</span>
+                        <span className="font-semibold text-blue-600">{userProfile?.assist ?? 0}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>MVP Awards</span>
+                        <span className="font-semibold text-amber-600">{userProfile?.MVPs ?? 0}</span>
+                      </div>
+                      {userProfile?.Saves !== undefined && (
+                        <div className="flex justify-between">
+                          <span>Saves</span>
+                          <span className="font-semibold text-purple-600">{userProfile.Saves}</span>
+                        </div>
+                      )}
+                      <div className="flex justify-between">
+                        <span>Wins</span>
+                        <span className="font-semibold text-green-600">{userProfile?.wins ?? 0}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Losses</span>
+                        <span className="font-semibold text-red-600">{userProfile?.losses ?? 0}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Win Rate</span>
+                        <span className="font-semibold text-blue-600">
+                          {calculateWinRate(userProfile?.wins ?? 0, userProfile?.matchesPlayed ?? 0)}
+                        </span>
+                      </div>
+                      {userProfile?.clean_sheets !== undefined && (
+                        <div className="flex justify-between">
+                          <span>Clean Sheets</span>
+                          <span className="font-semibold text-emerald-600">{userProfile.clean_sheets}</span>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="connections" className="mt-6">
+            <div className="grid grid-cols-1 gap-4">
+              {userProfile?.userType === 'team' ? (
+                <>
+                  <h3 className="text-lg font-semibold mb-4">Team Players</h3>
+                  {userProfile.teamInfo?.players && userProfile.teamInfo.players.length > 0 ? (
+                    userProfile.teamInfo.players.map((player) => (
+                      <Card key={player.id} className="hover:shadow-md transition-shadow">
+                        <CardContent className="p-4">
+                          <Link href={`/profile/${player.id}`} className="flex items-center gap-4 cursor-pointer">
+                            <Avatar className="h-12 w-12">
+                              <AvatarFallback>{player.name[0]}</AvatarFallback>
+                            </Avatar>
+                            <div>
+                              <div className="font-semibold text-gray-900">{player.name}</div>
+                              <div className="text-sm text-gray-600">
+                                {player.position}
+                                {player.number && ` • #${player.number}`}
+                              </div>
+                              <div className="text-xs text-gray-500">
+                                Joined {player.joinDate instanceof Date ? 
+                                  player.joinDate.toLocaleDateString() : 
+                                  new Date(player.joinDate).toLocaleDateString()}
+                              </div>
+                            </div>
+                          </Link>
+                        </CardContent>
+                      </Card>
+                    ))
+                  ) : (
+                    <div className="text-center text-gray-500 py-8">
+                      No players in the team yet.
+                    </div>
+                  )}
+                  
+                  {userProfile.teamInfo?.recruiterInfo?.openPositions && 
+                   userProfile.teamInfo.recruiterInfo.openPositions.length > 0 && (
+                    <div className="mt-8">
+                      <h3 className="text-lg font-semibold mb-4">Open Positions</h3>
+                      <div className="space-y-2">
+                        {userProfile.teamInfo.recruiterInfo.openPositions.map((position, index) => (
+                          <Badge key={index} variant="secondary" className="mr-2">{position}</Badge>
+                        ))}
+                      </div>
+                      {userProfile.teamInfo.recruiterInfo.requirements && (
+                        <div className="mt-4 text-sm text-gray-600">
+                          <strong>Requirements:</strong>
+                          <ul className="list-disc list-inside mt-2">
+                            {userProfile.teamInfo.recruiterInfo.requirements.map((req, index) => (
+                              <li key={index}>{req}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </>
+              ) : (
+                connectionDetails.length > 0 ? (
+                  connectionDetails.map((connection) => (
+                    <Card key={connection.id} className="hover:shadow-md transition-shadow">
+                      <CardContent className="p-4">
+                        <Link href={`/profile/${connection.id}`} className="flex items-center gap-4 cursor-pointer">
+                          <Avatar className="h-12 w-12">
+                            <AvatarImage src={connection.photoURL || ''} alt={connection.displayName} />
+                            <AvatarFallback>{connection.displayName?.[0] || 'U'}</AvatarFallback>
+                          </Avatar>
+                          <div>
+                            <div className="font-semibold text-gray-900">{connection.displayName}</div>
+                            <div className="text-sm text-gray-600">{connection.email}</div>
+                          </div>
+                        </Link>
+                      </CardContent>
+                    </Card>
+                  ))
+                ) : (
+                  <div className="text-center text-gray-500 py-8">
+                    No connections yet.
                   </div>
-                </div>
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 bg-orange-50 rounded-full flex items-center justify-center text-2xl">🥇</div>
-                  <div>
-                    <h3 className="font-semibold text-gray-900">MVP Award</h3>
-                    <p className="text-sm text-gray-500">2022 • All-Star Game MVP</p>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <span className="inline-block w-5 h-5 bg-blue-100 rounded-full flex items-center justify-center mr-2">📈</span>
-                Performance Tracking
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <table className="min-w-full text-sm">
-                <tbody>
-                  <tr>
-                    <td className="font-medium text-gray-700 py-1 pr-4">Matches Played</td>
-                    <td className="font-semibold text-gray-900 py-1">48</td>
-                  </tr>
-                  <tr>
-                    <td className="font-medium text-gray-700 py-1 pr-4">Wins</td>
-                    <td className="font-semibold text-green-600 py-1">32</td>
-                  </tr>
-                  <tr>
-                    <td className="font-medium text-gray-700 py-1 pr-4">Losses</td>
-                    <td className="font-semibold text-red-500 py-1">16</td>
-                  </tr>
-                  <tr>
-                    <td className="font-medium text-gray-700 py-1 pr-4">Win Rate</td>
-                    <td className="font-semibold text-blue-600 py-1">66.7%</td>
-                  </tr>
-                </tbody>
-              </table>
-            </CardContent>
-          </Card>
-        </div>
+                )
+              )}
+            </div>
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   );
 }
+
+export default ProfilePage;

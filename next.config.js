@@ -1,7 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   // Firebase Hosting configuration
-  output: "export", // For static site generation
   distDir: ".next",
   generateBuildId: async () => {
     // You can generate a unique build ID here if needed

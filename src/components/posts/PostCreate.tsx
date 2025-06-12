@@ -44,14 +44,13 @@ export default function PostCreate() {
         const storageRef = ref(storage, `posts/${user.uid}/${Date.now()}_${file.name}`);
         const snapshot = await uploadBytes(storageRef, file);
         fileUrl = await getDownloadURL(snapshot.ref);
-      }
-
-      await createPost({
+      }      await createPost({
         content: content.trim(),
         imageUrl: fileUrl,
         authorId: user.uid,
         createdAt: new Date(),
         likes: 0,
+        likedBy: [],
         comments: []
       });
 

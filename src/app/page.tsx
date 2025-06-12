@@ -77,7 +77,17 @@ export default function HomePage() {
         {/* Profile Card */}
         <div className="col-span-3">
           <Card className="sticky top-20 overflow-hidden">
-            <div className="h-20 bg-gradient-to-r from-blue-500 to-cyan-400"></div>
+            <div className="h-20 relative">
+              {userProfile?.bannerURL ? (
+                <img 
+                  src={userProfile.bannerURL} 
+                  alt="Profile Banner" 
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className="h-full w-full bg-gradient-to-r from-blue-500 to-cyan-400"></div>
+              )}
+            </div>
             <CardContent className="pt-0 p-6 -mt-12">
               <div className="flex flex-col items-center text-center">
                 <Avatar className="h-24 w-24 ring-4 ring-white">
@@ -90,19 +100,19 @@ export default function HomePage() {
                   {(userProfile?.firstName || (user?.displayName?.split(' ')[0])) + ' ' + 
                    (userProfile?.lastName || (user?.displayName?.split(' ').slice(1).join(' ')))}
                 </h2>
+                <Badge variant="secondary" className="mt-2">
+                  {userProfile?.accountType === 'team' ? 'Team Account' : 'Athlete Account'}
+                </Badge>
                 <p className="text-sm text-gray-500 mt-1">
                   {userProfile?.email || user?.email}
                 </p>
                 <p className="text-sm text-gray-600 mt-2">
                   {userProfile?.bio || "No bio added yet"}
                 </p>
-                <Badge variant="outline" className="mt-2 text-xs font-normal">
-                  {userProfile?.teams?.length ? 'Team Member' : 'Amateur Athlete'}
-                </Badge>
                 <Separator className="my-4" />
                 <div className="grid grid-cols-2 w-full">
                   <div className="text-center p-2 hover:bg-gray-50 rounded-lg transition-colors">
-                    <div className="text-2xl font-bold text-gray-900">{userProfile?.connections || 0}</div>
+                    <div className="text-2xl font-bold text-gray-900">{userProfile?.connections?.length || 0}</div>
                     <div className="text-xs text-gray-500 mt-1">Connections</div>
                   </div>
                   <div className="text-center p-2 hover:bg-gray-50 rounded-lg transition-colors">
@@ -244,7 +254,11 @@ export default function HomePage() {
           </Card>
 
           {/* People You May Know */}
-          {user && <PeopleYouMayKnow />}
+          {user && (
+            <div className="mb-6">
+              <PeopleYouMayKnow />
+            </div>
+          )}
 
           {/* Trending in Sports */}
           <Card>

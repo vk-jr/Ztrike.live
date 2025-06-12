@@ -19,11 +19,13 @@ import {
   arrayUnion,
   arrayRemove,
   FieldValue,
+  QueryDocumentSnapshot,
   documentId
 } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
 import { db } from './firebase';
-import type { UserProfile, Team, League, Match, Message, Post } from '@/types/database';
+import { createNotification } from './notificationActions';
+import type { UserProfile, Team, League, Message, Post, Match } from '@/types/database';
 
 // Error handling wrapper
 const handleFirestoreError = (error: FirestoreError) => {
@@ -42,7 +44,14 @@ const addTimestamps = (data: any, isNew = false) => ({
 export const createUserProfile = async (userId: string, data: Partial<UserProfile>) => {
   try {
     const userRef = doc(db, 'users', userId);
-    await setDoc(userRef, addTimestamps(data, true));
+    const profileData = {
+      ...data,
+      // Ensure displayNameLower exists for case-insensitive search
+      displayNameLower: (data.displayName || '').toLowerCase(),
+      // Ensure sports array exists and values are lowercase for search
+      sports: (data.sports || []).map(sport => sport.toLowerCase()),
+    };
+    await setDoc(userRef, addTimestamps(profileData, true));
     return userId;
   } catch (error) {
     handleFirestoreError(error as FirestoreError);
@@ -72,16 +81,30 @@ export const getUserProfile = async (userId: string) => {
           leagues: [],
           connections: [],
           pendingRequests: [],
-          postViews: 0
+          postViews: 0,
+          accountType: 'athlete', // Set default accountType to 'athlete'
         };
         await createUserProfile(userId, newProfile);
+        console.log('Debug getUserProfile: Created new profile', newProfile);
         return newProfile as UserProfile;
       }
+      console.log('Debug getUserProfile: Profile not found and no auth user');
       return null;
     }
 
     const data = userSnap.data();
-    return {
+    console.log('Debug getUserProfile: Raw Firestore data', data);
+    console.log('Debug getUserProfile: data.userType', data.userType);
+    console.log('Debug getUserProfile: data.teamInfo', data.teamInfo);
+    
+    let inferredAccountType: 'team' | 'athlete' = 'athlete'; // Default to athlete
+    if (data.accountType) {
+      inferredAccountType = data.accountType as 'team' | 'athlete';
+    } else if (data.userType === 'team' || data.teamInfo) {
+      inferredAccountType = 'team';
+    }
+
+    const profile = {
       ...data,
       id: userSnap.id,
       // Initialize empty arrays if they don't exist
@@ -95,9 +118,13 @@ export const getUserProfile = async (userId: string) => {
       updatedAt: data.updatedAt,
       // Ensure firstName and lastName are included
       firstName: data.firstName || data.displayName?.split(' ')[0] || '',
-      lastName: data.lastName || data.displayName?.split(' ').slice(1).join(' ') || ''
+      lastName: data.lastName || data.displayName?.split(' ').slice(1).join(' ') || '',
+      accountType: inferredAccountType, // Use the inferred account type
     } as UserProfile;
+    console.log('Debug getUserProfile: Processed Profile object', profile);
+    return profile;
   } catch (error) {
+    console.error('Debug getUserProfile: Error', error);
     handleFirestoreError(error as FirestoreError);
     return null;
   }
@@ -105,10 +132,19 @@ export const getUserProfile = async (userId: string) => {
 
 export const updateUserProfile = async (userId: string, data: Partial<UserProfile>) => {
   const userRef = doc(db, 'users', userId);
-  await updateDoc(userRef, {
+  const updateData = {
     ...data,
     updatedAt: Timestamp.now(),
-  });
+  };
+  // Update displayNameLower when displayName changes
+  if (data.displayName) {
+    updateData.displayNameLower = data.displayName.toLowerCase();
+  }
+  // Update sports array with lowercase values when sports change
+  if (data.sports) {
+    updateData.sports = data.sports.map(sport => sport.toLowerCase());
+  }
+  await updateDoc(userRef, updateData);
 };
 
 // Teams Collection
@@ -253,23 +289,91 @@ export const getTeamMatches = async (teamId: string) => {
 
 // Messages Collection
 export const createMessage = async (data: Partial<Message>) => {
-  const messageRef = doc(collection(db, 'messages'));
-  await setDoc(messageRef, {
-    ...data,
-    createdAt: Timestamp.now(),
-    updatedAt: Timestamp.now(),
-  });
-  return messageRef.id;
+  try {
+    const messageRef = doc(collection(db, 'messages'));
+    
+    // Ensure we have sender and receiver IDs
+    if (!data.senderId || !data.receiverId) {
+      throw new Error('Message must have both senderId and receiverId');
+    }
+
+    // Add participantIds array for indexing
+    const messageData = addTimestamps({
+      ...data,
+      participantIds: [data.senderId, data.receiverId],
+      read: false
+    }, true);
+
+    await setDoc(messageRef, messageData);
+    
+    // Create notification for new message
+    await createNotification({
+      type: 'message',
+      userId: data.receiverId,
+      fromId: data.senderId,
+      title: `New message`,
+      description: `You have a new message`,
+      metadata: {
+        messageId: messageRef.id
+      }
+    });
+
+    return messageRef.id;
+  } catch (error) {
+    handleFirestoreError(error as FirestoreError);
+  }
 };
 
 export const getMessage = async (messageId: string) => {
-  const messageRef = doc(db, 'messages', messageId);
-  const messageSnap = await getDoc(messageRef);
-  return messageSnap.exists() ? messageSnap.data() as Message : null;
+  try {
+    const messageRef = doc(db, 'messages', messageId);
+    const messageSnap = await getDoc(messageRef);
+    return messageSnap.exists() ? { id: messageSnap.id, ...messageSnap.data() } as Message : null;
+  } catch (error) {
+    handleFirestoreError(error as FirestoreError);
+    return null;
+  }
 };
 
-// Messages Collection with pagination
-export const getUserMessages = async (userId: string, pageSize = 20, lastDoc?: DocumentReference) => {
+export const getUserConversations = async (userId: string) => {
+  try {
+    const messagesRef = collection(db, 'messages');
+    const q = query(
+      messagesRef,
+      where('participantIds', 'array-contains', userId),
+      orderBy('createdAt', 'desc')
+    );
+    const querySnapshot = await getDocs(q);
+    
+    // Get unique conversation partners
+    const conversationsMap = new Map();
+    for (const doc of querySnapshot.docs) {
+      const message = { id: doc.id, ...doc.data() } as Message;
+      const partnerId = message.senderId === userId ? message.receiverId : message.senderId;
+      
+      if (!conversationsMap.has(partnerId) || 
+          (conversationsMap.get(partnerId).createdAt < message.createdAt)) {
+        conversationsMap.set(partnerId, message);
+      }
+    }
+    
+    // Get user profiles for conversation partners
+    const userProfiles = await Promise.all(
+      Array.from(conversationsMap.keys()).map(id => getUserProfile(id))
+    );
+    
+    return Array.from(conversationsMap.entries()).map(([partnerId, message], index) => ({
+      partnerId,
+      partnerProfile: userProfiles[index],
+      lastMessage: message
+    }));
+  } catch (error) {
+    handleFirestoreError(error as FirestoreError);
+    return [];
+  }
+};
+
+export const getConversationMessages = async (userId: string, partnerId: string, pageSize = 20, lastDoc?: DocumentReference) => {
   try {
     const messagesRef = collection(db, 'messages');
     const constraints: QueryConstraint[] = [
@@ -286,14 +390,28 @@ export const getUserMessages = async (userId: string, pageSize = 20, lastDoc?: D
     const querySnapshot = await getDocs(q);
     
     return {
-      messages: querySnapshot.docs.map(doc => ({ 
-        id: doc.id, 
-        ...doc.data() 
-      })) as Message[],
+      messages: querySnapshot.docs
+        .map(doc => ({ id: doc.id, ...doc.data() }) as Message)
+        .filter(msg => msg.senderId === partnerId || msg.receiverId === partnerId),
       lastDoc: querySnapshot.docs[querySnapshot.docs.length - 1]
     };
   } catch (error) {
     handleFirestoreError(error as FirestoreError);
+    return { messages: [], lastDoc: null };
+  }
+};
+
+export const markMessageAsRead = async (messageId: string) => {
+  try {
+    const messageRef = doc(db, 'messages', messageId);
+    await updateDoc(messageRef, {
+      read: true,
+      updatedAt: Timestamp.now()
+    });
+    return true;
+  } catch (error) {
+    handleFirestoreError(error as FirestoreError);
+    return false;
   }
 };
 
@@ -331,6 +449,7 @@ export const createPost = async (data: {
   authorId: string;
   createdAt: Date;
   likes: number;
+  likedBy: string[];
   comments: any[];
 }) => {
   try {
@@ -376,7 +495,7 @@ export const getUserPosts = async (userId: string): Promise<Post[]> => {
       postsRef,
       where('authorId', '==', userId),
       orderBy('createdAt', 'desc'),
-      limit(20) // Limit to 20 posts at a time for better performance
+      limit(20)
     );
     const querySnapshot = await getDocs(q);
     
@@ -393,6 +512,7 @@ export const getUserPosts = async (userId: string): Promise<Post[]> => {
       createdAt: doc.data().createdAt,
       updatedAt: doc.data().updatedAt,
       likes: doc.data().likes || 0,
+      likedBy: doc.data().likedBy || [],
       comments: doc.data().comments || []
     })) as Post[];
   } catch (error) {
@@ -418,7 +538,7 @@ export const getNetworkPosts = async (userId: string): Promise<Post[]> => {
     const postsRef = collection(db, 'posts');
     const q = query(
       postsRef,
-      where('authorId', 'in', [...connections, userId]), // Include user's own posts
+      where('authorId', 'in', [...connections, userId]),
       orderBy('createdAt', 'desc'),
       limit(20)
     );
@@ -432,7 +552,9 @@ export const getNetworkPosts = async (userId: string): Promise<Post[]> => {
     const userSnaps = await Promise.all(userRefs.map(ref => getDoc(ref)));
     const userDataMap = Object.fromEntries(
       userSnaps.map(snap => [snap.id, snap.data()])
-    );    // Map posts with author information
+    );
+
+    // Map posts with author information
     return querySnapshot.docs.map(doc => {
       const data = doc.data();
       return {
@@ -441,6 +563,7 @@ export const getNetworkPosts = async (userId: string): Promise<Post[]> => {
         imageUrl: data.imageUrl,
         authorId: data.authorId,
         likes: data.likes || 0,
+        likedBy: data.likedBy || [],
         comments: data.comments || [],
         createdAt: data.createdAt,
         updatedAt: data.updatedAt,
@@ -450,8 +573,8 @@ export const getNetworkPosts = async (userId: string): Promise<Post[]> => {
     });
   } catch (error) {
     handleFirestoreError(error as FirestoreError);
+    return [];
   }
-  return [];
 };
 
 export const getSuggestedUsers = async (userId: string, limitCount = 5): Promise<UserProfile[]> => {
@@ -537,26 +660,75 @@ export const createConnectionRequest = async (fromUserId: string, toUserId: stri
   }
 };
 
-export const acceptConnectionRequest = async (userId: string, fromUserId: string) => {
+// Function to send a connection request
+export const sendConnectionRequest = async (fromUserId: string, toUserId: string) => {
+  try {
+    const batch = writeBatch(db);
+
+    // Update target user's pending requests
+    const targetUserRef = doc(db, 'users', toUserId);
+    batch.update(targetUserRef, {
+      pendingRequests: arrayUnion(fromUserId),
+      updatedAt: Timestamp.now()
+    });
+
+    // Update sender's sent requests
+    const userRef = doc(db, 'users', fromUserId);
+    batch.update(userRef, {
+      sentRequests: arrayUnion(toUserId),
+      updatedAt: Timestamp.now()
+    });
+
+    await batch.commit();
+
+    // Create notification for connection request
+    await createNotification({
+      type: 'connection_request',
+      userId: toUserId,
+      fromId: fromUserId,
+      title: `New connection request`,
+      description: `Someone wants to connect with you`
+    });
+
+    return true;
+  } catch (error) {
+    handleFirestoreError(error as FirestoreError);
+    return false;
+  }
+};
+
+// Function to accept a connection request
+export const acceptConnectionRequest = async (userId: string, requesterId: string) => {
   try {
     const batch = writeBatch(db);
     
-    // Add connection to both users
+    // Add to user's connections
     const userRef = doc(db, 'users', userId);
-    const fromUserRef = doc(db, 'users', fromUserId);
-    
     batch.update(userRef, {
-      connections: arrayUnion(fromUserId),
-      pendingRequests: arrayRemove(fromUserId),
+      connections: arrayUnion(requesterId),
+      pendingRequests: arrayRemove(requesterId),
       updatedAt: Timestamp.now()
     });
     
-    batch.update(fromUserRef, {
+    // Add to requester's connections
+    const requesterRef = doc(db, 'users', requesterId);
+    batch.update(requesterRef, {
       connections: arrayUnion(userId),
+      sentRequests: arrayRemove(userId),
       updatedAt: Timestamp.now()
     });
     
     await batch.commit();
+
+    // Create notification for accepted request
+    await createNotification({
+      type: 'connection_accepted',
+      userId: requesterId,
+      fromId: userId,
+      title: `Connection request accepted`,
+      description: `Someone accepted your connection request`
+    });
+
     return true;
   } catch (error) {
     handleFirestoreError(error as FirestoreError);
@@ -616,32 +788,116 @@ export const getAllPosts = async (): Promise<Post[]> => {
     );
     const querySnapshot = await getDocs(q);
     
-    // Get all unique user IDs from posts
-    const userIds = [...new Set(querySnapshot.docs.map(doc => doc.data().authorId))];
+    // Get all unique user IDs from posts and comments
+    const postAuthorIds = querySnapshot.docs.map(doc => doc.data().authorId);
+    const commentAuthorIds = querySnapshot.docs.flatMap(doc => 
+      (doc.data().comments || []).map((comment: any) => comment.authorId)
+    );
+    const allUserIds = [...new Set([...postAuthorIds, ...commentAuthorIds])];
     
     // Get user information for all authors in a single batch
-    const userRefs = userIds.map(uid => doc(db, 'users', uid));
-    const userSnaps = await Promise.all(userRefs.map(ref => getDoc(ref)));
-    const userDataMap = Object.fromEntries(
-      userSnaps.map(snap => [snap.id, snap.data()])
-    );
+    const userDataMap = new Map<string, UserProfile>();
+    if (allUserIds.length > 0) {
+      // Firestore 'in' query has a limit of 10
+      const userBatches = [];
+      for (let i = 0; i < allUserIds.length; i += 10) {
+        const batchIds = allUserIds.slice(i, i + 10);
+        const userQuery = query(collection(db, 'users'), where(documentId(), 'in', batchIds));
+        userBatches.push(getDocs(userQuery));
+      }
+      const userSnapshots = await Promise.all(userBatches);
+      userSnapshots.forEach(snapshot => {
+        snapshot.docs.forEach(doc => {
+          userDataMap.set(doc.id, doc.data() as UserProfile);
+        });
+      });
+    }
 
-    // Map posts with author information
+    // Map posts with author information and process comments
     return querySnapshot.docs.map(doc => {
       const data = doc.data();
-      return {
+      const post = {
         id: doc.id,
         content: data.content,
         imageUrl: data.imageUrl,
         authorId: data.authorId,
         likes: data.likes || 0,
-        comments: data.comments || [],
-        createdAt: data.createdAt,
-        updatedAt: data.updatedAt,
-        authorName: userDataMap[data.authorId]?.displayName || 'Unknown User',
-        authorPhotoURL: userDataMap[data.authorId]?.photoURL
+        likedBy: data.likedBy || [],
+        // Process comments: convert timestamp and add author info
+        comments: (data.comments || []).map((comment: any) => ({
+          ...comment,
+          createdAt: comment.createdAt?.toDate ? comment.createdAt.toDate() : (comment.createdAt || new Date()),
+          authorName: userDataMap.get(comment.authorId)?.displayName || 'Unknown User',
+          authorPhotoURL: userDataMap.get(comment.authorId)?.photoURL,
+        })),
+        createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : (data.createdAt || new Date()),
+        updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate() : (data.updatedAt || new Date()),
+        authorName: userDataMap.get(data.authorId)?.displayName || 'Unknown User',
+        authorPhotoURL: userDataMap.get(data.authorId)?.photoURL
       } as Post;
+      return post;
     });
+  } catch (error) {
+    handleFirestoreError(error as FirestoreError);
+    return [];
+  }
+};
+
+export const getUnreadMessagesCount = async (userId: string) => {
+  try {
+    const messagesRef = collection(db, 'messages');
+    const q = query(
+      messagesRef,
+      where('receiverId', '==', userId),
+      where('read', '==', false)
+    );
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.size;
+  } catch (error) {
+    handleFirestoreError(error as FirestoreError);
+    return 0;
+  }
+};
+
+// Search for users (athletes, teams, leagues)
+export const searchUsers = async (searchQuery: string) => {
+  try {
+    const searchLower = searchQuery.toLowerCase();
+    const usersRef = collection(db, 'users');
+    
+    // Get users by display name
+    const nameQuery = query(
+      usersRef,
+      where('displayNameLower', '>=', searchLower),
+      where('displayNameLower', '<=', searchLower + '\uf8ff'),
+      limit(10)
+    );
+    
+    // Get users by sports (for athletes)
+    const sportsQuery = query(
+      usersRef,
+      where('sports', 'array-contains', searchLower),
+      limit(5)
+    );
+    
+    const [nameSnapshot, sportsSnapshot] = await Promise.all([
+      getDocs(nameQuery),
+      getDocs(sportsQuery)
+    ]);
+    
+    // Combine and deduplicate results
+    const resultMap = new Map<string, UserProfile>();
+    
+    [...nameSnapshot.docs, ...sportsSnapshot.docs].forEach(doc => {
+      if (!resultMap.has(doc.id)) {
+        resultMap.set(doc.id, {
+          id: doc.id,
+          ...doc.data()
+        } as UserProfile);
+      }
+    });
+    
+    return Array.from(resultMap.values());
   } catch (error) {
     handleFirestoreError(error as FirestoreError);
     return [];

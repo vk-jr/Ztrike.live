@@ -15,14 +15,17 @@ export default function LeaguesPage() {
   const [showMap, setShowMap] = useState(false);
   const [selectedSport, setSelectedSport] = useState("all");
   const [footballLeagues, setFootballLeagues] = useState<any[]>([]);
+  const [cricketLeagues, setCricketLeagues] = useState<any[]>([]);
+  const [basketballLeagues, setBasketballLeagues] = useState<any[]>([]);
+  const [hockeyLeagues, setHockeyLeagues] = useState<any[]>([]);
   const router = useRouter();
 
   const sports = [
-    { id: "basketball", name: "Basketball", color: "bg-orange-100 text-orange-700 border-orange-200" },
+    { id: "cricket", name: "Cricket", color: "bg-teal-100 text-teal-700 border-teal-200" },
     { id: "football", name: "Football", color: "bg-blue-100 text-blue-700 border-blue-200" },
-    { id: "baseball", name: "Baseball", color: "bg-red-100 text-red-700 border-red-200" },
+    { id: "basketball", name: "Basketball", color: "bg-orange-100 text-orange-700 border-orange-200" },
     { id: "hockey", name: "Hockey", color: "bg-purple-100 text-purple-700 border-purple-200" },
-    { id: "soccer", name: "Soccer", color: "bg-green-100 text-green-700 border-green-200" },
+   { id: "baseball", name: "Baseball", color: "bg-red-100 text-red-700 border-red-200" },
     { id: "golf", name: "Golf", color: "bg-yellow-100 text-yellow-700 border-yellow-200" },
     { id: "cycling", name: "Cycling", color: "bg-violet-100 text-violet-700 border-violet-200" },
     { id: "all", name: "All", color: "bg-gray-100 text-gray-700 border-gray-200" },
@@ -73,16 +76,60 @@ export default function LeaguesPage() {
   ];
 
   useEffect(() => {
-    if (selectedSport === "football") {
-      const fetchLeagues = async () => {
-        const leaguesCol = collection(db, "leagues", "football", "leagues");
+    const fetchLeagues = async () => {
+      if (selectedSport === 'all') return;
+      
+      try {
+        const leaguesCol = collection(db, "leagues", selectedSport, "leagues");
         const snapshot = await getDocs(leaguesCol);
         const leagueDocs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        setFootballLeagues(leagueDocs);
-      };
-      fetchLeagues();
-    }
+        
+        // Set the leagues state based on selected sport
+        switch(selectedSport) {
+          case 'football':
+            setFootballLeagues(leagueDocs);
+            break;
+          case 'cricket':
+            setCricketLeagues(leagueDocs);
+            break;
+          case 'basketball':
+            setBasketballLeagues(leagueDocs);
+            break;
+          case 'hockey':
+            setHockeyLeagues(leagueDocs);
+            break;
+        }
+      } catch (error) {
+        console.error(`Error fetching ${selectedSport} leagues:`, error);
+      }
+    };
+
+    fetchLeagues();
   }, [selectedSport]);
+
+  // Sport-specific emojis for league icons
+  const sportIcons = {
+    football: "⚽",
+    cricket: "🏏",
+    basketball: "🏀",
+    hockey: "🏑"
+  };
+
+  // Get the current leagues based on selected sport
+  const getCurrentLeagues = () => {
+    switch(selectedSport) {
+      case 'football':
+        return footballLeagues;
+      case 'cricket':
+        return cricketLeagues;
+      case 'basketball':
+        return basketballLeagues;
+      case 'hockey':
+        return hockeyLeagues;
+      default:
+        return [];
+    }
+  };
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-6">
@@ -140,36 +187,16 @@ export default function LeaguesPage() {
       {/* World Map (when toggled) */}
       {showMap && (
         <Card className="mb-6">
-          <CardContent className="p-6">
-            <div className="bg-gray-100 rounded-lg h-96 flex items-center justify-center relative overflow-hidden">
-              {/* Simplified world map representation */}
-              <div className="absolute inset-0 bg-gradient-to-br from-blue-50 to-green-50">
-                <svg viewBox="0 0 800 400" className="w-full h-full">
-                  {/* Simplified continents */}
-                  <path d="M100 150 L200 120 L250 160 L200 200 L150 180 Z" fill="#e5e7eb" />
-                  <path d="M300 100 L450 80 L500 140 L450 180 L350 160 Z" fill="#e5e7eb" />
-                  <path d="M520 200 L650 180 L700 240 L650 280 L570 260 Z" fill="#e5e7eb" />
-
-                  {/* League markers */}
-                  <circle cx="150" cy="160" r="4" fill="#ef4444" />
-                  <text x="155" y="150" fontSize="10" fill="#374151">NBA</text>
-
-                  <circle cx="200" cy="140" r="4" fill="#3b82f6" />
-                  <text x="205" y="130" fontSize="10" fill="#374151">Premier League</text>
-
-                  <circle cx="600" cy="220" r="4" fill="#10b981" />
-                  <text x="605" y="210" fontSize="10" fill="#374151">CBA</text>
-
-                  <circle cx="680" cy="320" r="4" fill="#f59e0b" />
-                  <text x="685" y="310" fontSize="10" fill="#374151">NBL</text>
-                </svg>
-              </div>
-              <div className="absolute bottom-4 right-4 flex gap-2">
-                <Button size="sm" variant="outline">+</Button>
-                <Button size="sm" variant="outline">-</Button>
-                <Button size="sm" variant="outline">Reset</Button>
-              </div>
-            </div>
+          <CardContent className="p-0 h-96">
+            <iframe
+              src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d25103381.17961603!2d-95.677068!3d37.062500000000005!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x54eab584e432360b%3A0x1c3bb99243deb742!2sUnited%20States!5e0!3m2!1sen!2sus!4v1717848000000!5m2!1sen!2sus"
+              width="100%"
+              height="100%"
+              style={{ border: 0 }}
+              allowFullScreen={false}
+              loading="lazy"
+              referrerPolicy="no-referrer-when-downgrade"
+            ></iframe>
           </CardContent>
         </Card>
       )}
@@ -184,26 +211,26 @@ export default function LeaguesPage() {
                 Leagues
               </CardTitle>
               <p className="text-sm text-gray-600">
-                {showMap ? "Football leagues from around the world" : "Major sports leagues from around the world"}
+                {showMap ? `${selectedSport.charAt(0).toUpperCase() + selectedSport.slice(1)} leagues from around the world` : "Major sports leagues from around the world"}
               </p>
             </CardHeader>
             <CardContent className="space-y-4">
-              {selectedSport === "football" ? (
-                footballLeagues.map((league) => (
+              {selectedSport !== 'all' ? (
+                getCurrentLeagues().map((league) => (
                   <div key={league.id} className="flex items-center justify-between cursor-pointer" onClick={() => router.push(`/leagues/${encodeURIComponent(league.id)}`)}>
-                  <div className="flex items-center space-x-3">
-                      <div className="text-2xl">⚽</div>
-                    <div>
+                    <div className="flex items-center space-x-3">
+                      <div className="text-2xl">{sportIcons[selectedSport as keyof typeof sportIcons]}</div>
+                      <div>
                         <h3 className="font-medium text-gray-900">{league.name || league.id}</h3>
                         {league.description && <p className="text-sm text-gray-600">{league.description}</p>}
-                        {!league.description && <p className="text-sm text-gray-600">Football</p>}
+                        {!league.description && <p className="text-sm text-gray-600">{selectedSport.charAt(0).toUpperCase() + selectedSport.slice(1)}</p>}
                       </div>
                     </div>
                     <Button size="sm" variant="outline" className="text-xs">View</Button>
                   </div>
                 ))
               ) : (
-                <div className="text-gray-500">Select Football to view leagues</div>
+                <div className="text-gray-500">Select a sport to view leagues</div>
               )}
             </CardContent>
           </Card>

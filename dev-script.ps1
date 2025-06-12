@@ -16,7 +16,7 @@ function Start-DevService {
 
 # Start services
 $firebaseJob = Start-DevService -Name "Firebase Emulators" -ScriptBlock {
-    Set-Location "d:\Aman\Startups&Works\ztrike\ztrike-sports-platform"
+    Set-Location "e:\Rahul\Ztrike main project\75 done\ztrike-sports-platform"
     firebase emulators:start
 }
 

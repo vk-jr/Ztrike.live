@@ -6,50 +6,38 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { useRouter } from 'next/navigation';
-import { createUserProfile } from '@/lib/db';
+import { createUserProfile, getUserProfile } from '@/lib/db';
 import type { UserProfile } from '@/types/database';
-
-// Common sports list
-const COMMON_SPORTS = [
-  'Soccer', 'Basketball', 'Baseball', 'Tennis',
-  'Cricket', 'Volleyball', 'Hockey', 'Rugby', 'Others'
-];
-
-// Social media platforms
-const SPORTS_PLATFORMS = [
-  'Instagram', 'Twitter', 'Facebook', 'YouTube', 'TikTok', 'Strava'
-];
 
 export function SignIn() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [showSportsForm, setShowSportsForm] = useState(false);
-  const [selectedSports, setSelectedSports] = useState<string[]>([]);
-  const [currentTeam, setCurrentTeam] = useState('');
-  const [sportsAccounts, setSportsAccounts] = useState<{ [key: string]: string }>({});
-  const [userData, setUserData] = useState<Partial<UserProfile> | null>(null);
   const { signIn, signInWithGoogle } = useAuth();
   const router = useRouter();
 
-  const handleSportsSubmit = async () => {
-    if (!userData) return;
+  const redirectBasedOnUserType = async (userId: string) => {
     try {
-      setLoading(true);
-      const profile: Partial<UserProfile> = {
-        ...userData,
-        sports: selectedSports,
-        currentTeam: currentTeam || undefined,
-        sportsAccounts: Object.keys(sportsAccounts).length > 0 ? sportsAccounts : undefined,
-      };
-      await createUserProfile(userData.id!, profile);
+      const profile = await getUserProfile(userId);
+      if (profile) {
+        switch (profile.userType) {
+          case 'team':
+            router.push(`/teams/${userId}/dashboard`);
+            break;
+          case 'league':
+            router.push('/leagues/dashboard');
+            break;
+          default:
+            router.push('/profile');
+            break;
+        }
+      } else {
+        router.push('/profile');
+      }
+    } catch (error) {
+      console.error('Error redirecting user:', error);
       router.push('/profile');
-    } catch (error: any) {
-      console.error('Error updating profile:', error);
-      setError(error?.message || 'Failed to update profile. Please try again.');
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -60,31 +48,12 @@ export function SignIn() {
     try {
       const result = await signIn(email, password);
       if (result?.user) {
-        const names = result.user.displayName?.split(' ') || ['', ''];
-        const profile: Partial<UserProfile> = {
-          id: result.user.uid,
-          email: result.user.email || '',
-          firstName: names[0],
-          lastName: names.slice(1).join(' '),
-          displayName: result.user.displayName || '',
-          photoURL: result.user.photoURL || '',
-          bio: '',
-          teams: [],
-          leagues: [],
-          connections: [],
-          pendingRequests: [],
-          sentRequests: [],
-          postViews: 0,
-          sports: [],
-          createdAt: new Date(),
-          updatedAt: new Date()
-        };
-        setUserData(profile);
-        setShowSportsForm(true);
+        await redirectBasedOnUserType(result.user.uid);
       }
     } catch (error: any) {
       console.error('Error signing in:', error);
       setError(error?.message || 'Failed to sign in. Please check your credentials.');
+    } finally {
       setLoading(false);
     }
   };
@@ -95,110 +64,42 @@ export function SignIn() {
     try {
       const result = await signInWithGoogle();
       if (result?.user) {
-        const names = result.user.displayName?.split(' ') || ['', ''];
-        const profile: Partial<UserProfile> = {
-          id: result.user.uid,
-          email: result.user.email || '',
-          firstName: names[0],
-          lastName: names.slice(1).join(' '),
-          displayName: result.user.displayName || '',
-          photoURL: result.user.photoURL || '',
-          bio: '',
-          teams: [],
-          leagues: [],
-          connections: [],
-          pendingRequests: [],
-          sentRequests: [],
-          postViews: 0,
-          sports: [],
-          createdAt: new Date(),
-          updatedAt: new Date()
-        };
-        setUserData(profile);
-        setShowSportsForm(true);
+        const existingProfile = await getUserProfile(result.user.uid);
+        if (existingProfile) {
+          await redirectBasedOnUserType(result.user.uid);
+        } else {
+          // Create default athlete profile for new Google sign-ins
+          const names = result.user.displayName?.split(' ') || ['', ''];
+          const profile: Partial<UserProfile> = {
+            id: result.user.uid,
+            email: result.user.email || '',
+            firstName: names[0],
+            lastName: names.slice(1).join(' '),
+            displayName: result.user.displayName || '',
+            photoURL: result.user.photoURL || '',
+            bio: '',
+            userType: 'athlete',
+            teams: [],
+            leagues: [],
+            connections: [],
+            pendingRequests: [],
+            sentRequests: [],
+            postViews: 0,
+            sports: [],
+            createdAt: new Date(),
+            updatedAt: new Date()
+          };
+          await createUserProfile(result.user.uid, profile);
+          router.push('/profile');
+        }
       }
     } catch (error: any) {
       console.error('Error signing in with Google:', error);
       setError(error?.message || 'Failed to sign in with Google. Please try again.');
+    } finally {
       setLoading(false);
     }
   };
-
-  if (showSportsForm) {
-    return (
-      <Card className="w-full max-w-md p-6 space-y-4">
-        <h2 className="text-2xl font-bold text-center">Tell us about your sports</h2>
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <label className="block text-sm font-medium">Select sports you play</label>
-            <div className="grid grid-cols-2 gap-2">
-              {COMMON_SPORTS.map((sport) => (
-                <label key={sport} className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"
-                    checked={selectedSports.includes(sport)}
-                    onChange={(e) => {
-                      if (e.target.checked) {
-                        setSelectedSports([...selectedSports, sport]);
-                      } else {
-                        setSelectedSports(selectedSports.filter(s => s !== sport));
-                      }
-                    }}
-                    className="rounded border-gray-300"
-                  />
-                  <span>{sport}</span>
-                </label>
-              ))}
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <label className="block text-sm font-medium">Current Team (if any)</label>
-            <Input
-              type="text"
-              placeholder="Enter your current team name"
-              value={currentTeam}
-              onChange={(e) => setCurrentTeam(e.target.value)}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <label className="block text-sm font-medium">Sports Social Media Accounts</label>
-            {SPORTS_PLATFORMS.map((platform) => (
-              <Input
-                key={platform}
-                type="text"
-                placeholder={`${platform} username (optional)`}
-                value={sportsAccounts[platform] || ''}
-                onChange={(e) => {
-                  if (e.target.value) {
-                    setSportsAccounts({ ...sportsAccounts, [platform]: e.target.value });
-                  } else {
-                    const newAccounts = { ...sportsAccounts };
-                    delete newAccounts[platform];
-                    setSportsAccounts(newAccounts);
-                  }
-                }}
-              />
-            ))}
-          </div>
-
-          {error && (
-            <div className="text-sm text-red-500 text-center">{error}</div>
-          )}
-
-          <Button
-            type="button"
-            className="w-full"
-            disabled={loading}
-            onClick={handleSportsSubmit}
-          >
-            {loading ? 'Saving...' : 'Complete Profile'}
-          </Button>
-        </div>
-      </Card>
-    );
-  }
 
   return (
     <Card className="w-full max-w-md p-6 space-y-4">
@@ -234,17 +135,11 @@ export function SignIn() {
           <span className="w-full border-t" />
         </div>
         <div className="relative flex justify-center text-xs uppercase">
-          <span className="px-2 bg-white text-gray-500">or continue with</span>
+          <span className="bg-white px-2 text-gray-500">Or continue with</span>
         </div>
       </div>
-      <Button
-        type="button"
-        variant="outline"
-        className="w-full"
-        onClick={handleGoogleSignIn}
-        disabled={loading}
-      >
-        <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24">
+      <Button variant="outline" onClick={handleGoogleSignIn} disabled={loading} className="w-full">
+        <svg className="mr-2 h-5 w-5" viewBox="0 0 24 24">
           <path
             fill="currentColor"
             d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
@@ -262,7 +157,7 @@ export function SignIn() {
             d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
           />
         </svg>
-        Sign in with Google
+        Continue with Google
       </Button>
     </Card>
   );

@@ -3,9 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "node node_modules/next/dist/bin/next dev -H 0.0.0.0",
-    "build": "node node_modules/next/dist/bin/next build",
-    "start": "node node_modules/next/dist/bin/next start",
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
     "lint": "bunx biome lint --write && bunx tsc --noEmit",
     "format": "bunx biome format --write",
     "dev:all": "pwsh .\\dev-script.ps1",
@@ -18,13 +18,15 @@
     "@radix-ui/react-avatar": "^1.1.10",
     "@radix-ui/react-dialog": "^1.1.14",
     "@radix-ui/react-dropdown-menu": "^2.1.15",
+    "@radix-ui/react-label": "^2.1.7",
     "@radix-ui/react-separator": "^1.1.7",
     "@radix-ui/react-slot": "^1.2.3",
     "@radix-ui/react-tabs": "^1.1.12",
     "@radix-ui/react-toast": "^1.2.14",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "default-connector": "link:C:/Users/amanx/AppData/Local/pnpm/global/5/node_modules/dataconnect-generated/js/default-connector",
+    "date-fns": "^4.1.0",
+    "default-connector": "file:./dataconnect-generated/js/default-connector",
     "firebase": "^11.8.1",
     "lucide-react": "^0.475.0",
     "next": "^15.3.2",
@@ -49,5 +51,19 @@
     "postcss": "^8.5.3",
     "tailwindcss": "^3.4.17",
     "typescript": "^5.8.3"
-  }
+  },
+  "description": "This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).",
+  "main": "next.config.js",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/vk-jr/Ztrike.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/vk-jr/Ztrike/issues"
+  },
+  "homepage": "https://github.com/vk-jr/Ztrike#readme"
 }
