@@ -6,7 +6,7 @@ const nextConfig = {
     // You can generate a unique build ID here if needed
     return "build-" + Date.now();
   },
-
+devIndicators: false,
   images: {
     unoptimized: true,
     domains: [
