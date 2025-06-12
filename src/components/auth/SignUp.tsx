@@ -9,6 +9,7 @@ import { useRouter } from 'next/navigation';
 import { createUserProfile } from '@/lib/db';
 import { UserCredential, User } from 'firebase/auth';
 import type { UserProfile } from '@/types/database';
+import { FirebaseError } from 'firebase/app';
 
 // Common sports list
 const COMMON_SPORTS = [
@@ -160,7 +161,7 @@ export function SignUp() {
       const userCredential = await signUp(formData.email, formData.password);
       const { user } = userCredential;
       // For email/password sign up, if it's a team or league, we need to get the name first
-      if (formData.userType !== 'player') { // Changed 'athlete' to 'player'
+      if (formData.userType !== 'player') {
         if (!formData.name.trim()) {
           setError('Please enter a name before continuing');
           setLoading(false);
@@ -168,11 +169,15 @@ export function SignUp() {
         }
       }
       // Directly create profile and redirect
-      await createProfile(user, formData.userType === 'player' ? `${formData.firstName} ${formData.lastName}` : formData.name); // Changed 'athlete' to 'player'
+      await createProfile(user, formData.userType === 'player' ? `${formData.firstName} ${formData.lastName}` : formData.name);
 
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error signing up:', error);
-      setError(error?.message || 'Failed to create account. Please try again.');
+      if (error instanceof FirebaseError) {
+        setError(error.message);
+      } else {
+        setError('Failed to create account. Please try again.');
+      }
     } finally {
       setLoading(false);
     }
@@ -186,7 +191,7 @@ export function SignUp() {
       const { user } = result;
       if (user) {
         // For Google sign in, if it's a team or league, we need to get the name first
-        if (formData.userType !== 'player') { // Changed 'athlete' to 'player'
+        if (formData.userType !== 'player') {
           if (!formData.name.trim()) {
             setError('Please enter a name before continuing');
             setLoading(false);
@@ -194,11 +199,15 @@ export function SignUp() {
           }
         }
         // Directly create profile and redirect
-        await createProfile(user, user.displayName || (formData.userType === 'player' ? `${formData.firstName} ${formData.lastName}` : formData.name)); // Changed 'athlete' to 'player'
+        await createProfile(user, user.displayName || (formData.userType === 'player' ? `${formData.firstName} ${formData.lastName}` : formData.name));
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error signing in with Google:', error);
-      setError(error?.message || 'Failed to sign in with Google. Please try again.');
+      if (error instanceof FirebaseError) {
+        setError(error.message);
+      } else {
+        setError('Failed to sign in with Google. Please try again.');
+      }
     } finally {
       setLoading(false);
     }

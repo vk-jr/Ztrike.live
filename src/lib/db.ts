@@ -25,7 +25,7 @@ import {
 import { getAuth } from 'firebase/auth';
 import { db } from './firebase';
 import { createNotification } from './notificationActions';
-import type { UserProfile, Team, League, Message, Post, Match } from '@/types/database';
+import type { UserProfile, Team, League, Message, Post, Match, Comment } from '@/types/database';
 
 // Error handling wrapper
 const handleFirestoreError = (error: FirestoreError) => {
@@ -34,7 +34,7 @@ const handleFirestoreError = (error: FirestoreError) => {
 };
 
 // Helper function to add timestamps
-const addTimestamps = (data: any, isNew = false) => ({
+const addTimestamps = <T extends Record<string, unknown>>(data: T, isNew = false): T & { updatedAt: Timestamp; createdAt?: Timestamp } => ({
   ...data,
   updatedAt: Timestamp.now(),
   ...(isNew && { createdAt: Timestamp.now() })
@@ -373,7 +373,12 @@ export const getUserConversations = async (userId: string) => {
   }
 };
 
-export const getConversationMessages = async (userId: string, partnerId: string, pageSize = 20, lastDoc?: DocumentReference) => {
+export const getConversationMessages = async (
+  userId: string,
+  partnerId: string,
+  pageSize = 20,
+  lastDoc?: QueryDocumentSnapshot<Message>
+) => {
   try {
     const messagesRef = collection(db, 'messages');
     const constraints: QueryConstraint[] = [
@@ -450,7 +455,7 @@ export const createPost = async (data: {
   createdAt: Date;
   likes: number;
   likedBy: string[];
-  comments: any[];
+  comments: Comment[];
 }) => {
   try {
     const batch = writeBatch(db);
@@ -860,7 +865,7 @@ export const getUnreadMessagesCount = async (userId: string) => {
 };
 
 // Search for users (athletes, teams, leagues)
-export const searchUsers = async (searchQuery: string) => {
+export const searchUsers = async (searchQuery: string): Promise<UserProfile[]> => {
   try {
     const searchLower = searchQuery.toLowerCase();
     const usersRef = collection(db, 'users');
