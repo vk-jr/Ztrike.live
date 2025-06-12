@@ -87,10 +87,12 @@ export interface Team {
   logo?: string;
 }
 
+export type SportType = 'football' | 'cricket' | 'basketball' | 'hockey';
+
 export interface League {
   id: string;
   name: string;
-  sport: string;
+  sport: SportType;
   teams: string[];
 }
 

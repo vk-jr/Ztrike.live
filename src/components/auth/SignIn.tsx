@@ -8,6 +8,7 @@ import { Card } from '@/components/ui/card';
 import { useRouter } from 'next/navigation';
 import { createUserProfile, getUserProfile } from '@/lib/db';
 import type { UserProfile } from '@/types/database';
+import { FirebaseError } from 'firebase/app';
 
 export function SignIn() {
   const [email, setEmail] = useState('');
@@ -50,9 +51,13 @@ export function SignIn() {
       if (result?.user) {
         await redirectBasedOnUserType(result.user.uid);
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error signing in:', error);
-      setError(error?.message || 'Failed to sign in. Please check your credentials.');
+      if (error instanceof FirebaseError) {
+        setError(error.message);
+      } else {
+        setError('Failed to sign in. Please check your credentials.');
+      }
     } finally {
       setLoading(false);
     }
@@ -78,7 +83,7 @@ export function SignIn() {
             displayName: result.user.displayName || '',
             photoURL: result.user.photoURL || '',
             bio: '',
-            userType: 'athlete',
+            userType: 'player',
             teams: [],
             leagues: [],
             connections: [],
@@ -93,9 +98,13 @@ export function SignIn() {
           router.push('/profile');
         }
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error signing in with Google:', error);
-      setError(error?.message || 'Failed to sign in with Google. Please try again.');
+      if (error instanceof FirebaseError) {
+        setError(error.message);
+      } else {
+        setError('Failed to sign in with Google. Please try again.');
+      }
     } finally {
       setLoading(false);
     }

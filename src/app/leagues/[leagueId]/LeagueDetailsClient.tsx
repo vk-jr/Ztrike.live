@@ -44,7 +44,18 @@ const SPORT_STATS = {
   }
 } as const;
 
-interface Team {
+type SportType = keyof typeof SPORT_STATS;
+
+interface LeagueInfo {
+  id: string;
+  sport: SportType;
+  name?: string;
+  season?: string;
+  country?: string;
+  description?: string;
+}
+
+type BaseTeam = {
   id: string;
   name: string;
   matches_played: number;
@@ -52,16 +63,42 @@ interface Team {
   draw: number;
   losses: number;
   points: number;
-  // Common sport-specific stats (add more as needed based on your data)
+};
+
+type FootballTeam = BaseTeam & {
+  sport: 'football';
   goals_for?: number;
   goals_against?: number;
   goal_difference?: number;
+};
+
+type CricketTeam = BaseTeam & {
+  sport: 'cricket';
   net_run_rate?: number;
+  NRR?: number;
+};
+
+type BasketballTeam = BaseTeam & {
+  sport: 'basketball';
   points_for?: number;
   points_against?: number;
   point_difference?: number;
-  [key: string]: any; // Keep index signature for flexibility
-}
+};
+
+type HockeyTeam = BaseTeam & {
+  sport: 'hockey';
+  goals_for?: number;
+  goals_against?: number;
+  goal_difference?: number;
+};
+
+type Team = FootballTeam | CricketTeam | BasketballTeam | HockeyTeam;
+
+type PlayerStats = {
+  [K in SportType]: {
+    [key: string]: number;
+  };
+}[SportType];
 
 interface Player {
   id: string;
@@ -70,7 +107,7 @@ interface Player {
   jersey_number?: string;
   matches_played?: number;
   MVPs?: number;
-  [key: string]: any;
+  stats?: PlayerStats;
 }
 
 export default function LeagueDetailsClient({ leagueId }: { leagueId: string }) {
@@ -79,9 +116,9 @@ export default function LeagueDetailsClient({ leagueId }: { leagueId: string }) 
   const [players, setPlayers] = useState<Player[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [leagueInfo, setLeagueInfo] = useState<{ id: string; sport: string; name?: string; season?: string; country?: string; description?: string; } | null>(null);
+  const [leagueInfo, setLeagueInfo] = useState<LeagueInfo | null>(null);
 
-  const getSportIcon = (sport: string) => {
+  const getSportIcon = (sport: SportType) => {
     switch(sport) {
       case 'football': return '⚽';
       case 'cricket': return '🏏';
@@ -97,10 +134,9 @@ export default function LeagueDetailsClient({ leagueId }: { leagueId: string }) 
       setError(null);
       
       try {
-        // Try to find the league in each sport's collection
-        const sports = ['football', 'cricket', 'basketball', 'hockey'];
+        const sports: SportType[] = ['football', 'cricket', 'basketball', 'hockey'];
         let leagueDoc = null;
-        let currentSport = '';
+        let currentSport: SportType | null = null;
         
         for (const s of sports) {
           const docRef = doc(db, "leagues", s, "leagues", leagueId);
@@ -113,53 +149,82 @@ export default function LeagueDetailsClient({ leagueId }: { leagueId: string }) 
           }
         }
 
-        if (!leagueDoc) {
+        if (!leagueDoc || !currentSport) {
           throw new Error('League not found');
         }
 
-        // Set league info
+        const leagueData = leagueDoc.data();
         setLeagueInfo({
           id: leagueDoc.id,
-          ...leagueDoc.data(),
-          sport: currentSport
-        } as any);
+          sport: currentSport,
+          name: leagueData.name,
+          season: leagueData.season,
+          country: leagueData.country,
+          description: leagueData.description
+        });
 
         // Fetch teams
         const teamsCollection = collection(db, "leagues", currentSport, "leagues", leagueId, "teams");
         const teamsSnapshot = await getDocs(teamsCollection);
-        const teamsList = teamsSnapshot.docs.map(doc => ({ 
-          id: doc.id, 
-          ...doc.data(),
-          // Ensure default values for required fields
-          matches_played: doc.data().matches_played || 0,
-          wins: doc.data().wins || 0,
-          draw: doc.data().draw || 0,
-          losses: doc.data().losses || 0,
-          points: doc.data().points || 0,
-          // Include sport-specific stats
-          goals_for: doc.data().goals_for, // Include football/hockey stat
-          goals_against: doc.data().goals_against, // Include football/hockey stat
-          goal_difference: doc.data().goal_difference, // Include football/hockey stat
-          net_run_rate: doc.data().net_run_rate, // Include cricket stat
-          points_for: doc.data().points_for, // Include basketball stat
-          points_against: doc.data().points_against, // Include basketball stat
-          point_difference: doc.data().point_difference, // Include basketball stat
-        })) as Team[];
+        const teamsList = teamsSnapshot.docs.map(doc => {
+          const data = doc.data();
+          const baseTeam = {
+            id: doc.id,
+            name: data.name || '',
+            matches_played: data.matches_played || 0,
+            wins: data.wins || 0,
+            draw: data.draw || 0,
+            losses: data.losses || 0,
+            points: data.points || 0,
+            sport: currentSport
+          };
 
-        // Sort teams
+          switch (currentSport) {
+            case 'football':
+            case 'hockey':
+              return {
+                ...baseTeam,
+                goals_for: data.goals_for,
+                goals_against: data.goals_against,
+                goal_difference: data.goal_difference
+              } as FootballTeam;
+            case 'cricket':
+              return {
+                ...baseTeam,
+                net_run_rate: data.net_run_rate,
+                NRR: data.NRR
+              } as CricketTeam;
+            case 'basketball':
+              return {
+                ...baseTeam,
+                points_for: data.points_for,
+                points_against: data.points_against,
+                point_difference: data.point_difference
+              } as BasketballTeam;
+            default:
+              return baseTeam as HockeyTeam;
+          }
+        });
+
+        // Sort teams based on sport
         if (currentSport === 'cricket') {
           setTeams(teamsList.sort((a, b) => {
             if (b.points !== a.points) {
-              return b.points - a.points; // Sort by points first (descending)
-            } else {
-              return (b.NRR ?? 0) - (a.NRR ?? 0); // Then sort by NRR (descending)
+              return b.points - a.points;
             }
+            const aNRR = (a as CricketTeam & { sport: 'cricket' }).NRR ?? 0;
+            const bNRR = (b as CricketTeam & { sport: 'cricket' }).NRR ?? 0;
+            return bNRR - aNRR;
           }));
         } else {
-          setTeams(teamsList.sort((a, b) => b.points - a.points)); // Sort by points for other sports
+          setTeams(teamsList.sort((a, b) => b.points - a.points));
         }
-      } catch (err: any) {
-        setError(err.message || "Failed to fetch league details");
+      } catch (err) {
+        if (err instanceof Error) {
+          setError(err.message);
+        } else {
+          setError("Failed to fetch league details");
+        }
       } finally {
         setLoading(false);
       }
@@ -169,20 +234,34 @@ export default function LeagueDetailsClient({ leagueId }: { leagueId: string }) 
   }, [leagueId]);
 
   const handleTeamClick = async (teamId: string) => {
+    if (!leagueInfo) return;
+    
     setSelectedTeam(teamId);
     setLoading(true);
     setError(null);
     
     try {
-      const sport = leagueInfo?.sport || 'football';
-      const playersCollection = collection(db, "leagues", sport, "leagues", leagueId, "teams", teamId, "players");
+      const playersCollection = collection(db, "leagues", leagueInfo.sport, "leagues", leagueId, "teams", teamId, "players");
       const playersSnapshot = await getDocs(playersCollection);
-      setPlayers(playersSnapshot.docs.map(doc => ({ 
-        id: doc.id,
-        ...doc.data()
-      })) as Player[]);
-    } catch (err: any) {
-      setError(err.message || "Failed to fetch players");
+      const playersData = playersSnapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          name: data.name || '',
+          position: data.position || '',
+          jersey_number: data.jersey_number,
+          matches_played: data.matches_played,
+          MVPs: data.MVPs,
+          stats: data.stats as PlayerStats
+        } as Player;
+      });
+      setPlayers(playersData);
+    } catch (err) {
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError("Failed to fetch players");
+      }
     } finally {
       setLoading(false);
     }
@@ -279,11 +358,11 @@ export default function LeagueDetailsClient({ leagueId }: { leagueId: string }) 
                           <td className="px-4 py-3 text-left">{index + 1}</td>
                           <td className="px-4 py-3 text-left font-medium">{team.name}</td>
                           <td className="px-4 py-3 text-center font-semibold text-blue-600">{team.points}</td>
-                          <td className="px-4 py-3 text-center">{team.matches}</td>
+                          <td className="px-4 py-3 text-center">{team.matches_played}</td>
                           <td className="px-4 py-3 text-center text-green-600">{team.wins}</td>
                           <td className="px-4 py-3 text-center text-red-600">{team.losses}</td>
                           {/* Sport-specific data */}
-                          {leagueInfo?.sport === 'football' && (
+                          {team.sport === 'football' && (
                             <>
                             <td className="px-4 py-3 text-center text-gray-600">{team.draw}</td>
                               <td className="px-4 py-3 text-center">{team.goals_for ?? '-'}</td> 
@@ -291,17 +370,17 @@ export default function LeagueDetailsClient({ leagueId }: { leagueId: string }) 
                               <td className="px-4 py-3 text-center">{team.goal_difference ?? '-'}</td>
                             </>
                           )}
-                          {leagueInfo?.sport === 'cricket' && (
-                             <td className="px-4 py-3 text-center">{team.NRR ?? '-'}</td>
+                          {team.sport === 'cricket' && (
+                             <td className="px-4 py-3 text-center">{team.NRR?.toFixed(3) ?? '-'}</td>
                           )}
-                          {leagueInfo?.sport === 'basketball' && (
+                          {team.sport === 'basketball' && (
                             <>
                               <td className="px-4 py-3 text-center">{team.points_for ?? '-'}</td>
                               <td className="px-4 py-3 text-center">{team.points_against ?? '-'}</td>
                               <td className="px-4 py-3 text-center">{team.point_difference ?? '-'}</td>
                             </>
                           )}
-                           {leagueInfo?.sport === 'hockey' && (
+                           {team.sport === 'hockey' && (
                             <>
                             <td className="px-4 py-3 text-center text-gray-600">{team.draw}</td>
                               <td className="px-4 py-3 text-center">{team.goals_for ?? '-'}</td>
@@ -400,7 +479,7 @@ export default function LeagueDetailsClient({ leagueId }: { leagueId: string }) 
                 </thead>
                 <tbody>
                   {players.map(player => {
-                    const sportStats = SPORT_STATS[leagueInfo.sport as keyof typeof SPORT_STATS];
+                    const sportStats = leagueInfo ? SPORT_STATS[leagueInfo.sport] : null;
                     return (
                       <tr key={player.id} className="border-t hover:bg-gray-50 transition-colors">
                         <td className="px-4 py-3">
@@ -417,18 +496,18 @@ export default function LeagueDetailsClient({ leagueId }: { leagueId: string }) 
                         <td className="px-4 py-3 text-gray-600">{player.position || "-"}</td>
                         <td className="px-4 py-3 text-center">{player.matches_played ?? "-"}</td>
                         <td className={`px-4 py-3 text-center font-medium ${sportStats?.mainStat.color}`}>
-                          {player[sportStats?.mainStat.key] ?? "-"}
+                          {player.stats?.[leagueInfo?.sport ?? 'football']?.[sportStats?.mainStat.key] ?? "-"}
                         </td>
                         <td className={`px-4 py-3 text-center font-medium ${sportStats?.secondaryStat.color}`}>
-                          {player[sportStats?.secondaryStat.key] ?? "-"}
+                          {player.stats?.[leagueInfo?.sport ?? 'football']?.[sportStats?.secondaryStat.key] ?? "-"}
                         </td>
                         <td className="px-4 py-3 text-center font-medium text-purple-600">{player.MVPs ?? "-"}</td>
                         <td className="px-4 py-3">
                           <div className="flex flex-wrap gap-2 text-xs">
                             {sportStats?.additionalStats.map(stat => 
-                              player[stat.key] ? (
+                              player.stats?.[leagueInfo?.sport ?? 'football']?.[stat.key] ? (
                                 <span key={stat.key} className={`px-2 py-1 ${stat.bgColor} ${stat.color} rounded`}>
-                                  {player[stat.key]} {stat.label}
+                                  {player.stats[leagueInfo?.sport ?? 'football'][stat.key]} {stat.label}
                                 </span>
                               ) : null
                             )}

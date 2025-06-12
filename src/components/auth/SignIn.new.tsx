@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { useRouter } from 'next/navigation';
+import { FirebaseError } from 'firebase/app';
 
 export function SignIn() {
   const [email, setEmail] = useState('');
@@ -22,9 +23,13 @@ export function SignIn() {
     try {
       await signIn(email, password);
       router.push('/profile');
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error signing in:', error);
-      setError(error?.message || 'Failed to sign in. Please check your credentials.');
+      if (error instanceof FirebaseError) {
+        setError(error.message);
+      } else {
+        setError('Failed to sign in. Please check your credentials.');
+      }
     } finally {
       setLoading(false);
     }
@@ -36,9 +41,13 @@ export function SignIn() {
     try {
       await signInWithGoogle();
       router.push('/profile');
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error signing in with Google:', error);
-      setError(error?.message || 'Failed to sign in with Google. Please try again.');
+      if (error instanceof FirebaseError) {
+        setError(error.message);
+      } else {
+        setError('Failed to sign in with Google. Please try again.');
+      }
     } finally {
       setLoading(false);
     }
