@@ -9,7 +9,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Trophy, Users, Calendar, Star } from "lucide-react";
-import { useAuth } from "@/hooks/useAuth";
+import { useAuth } from "@/lib/auth/AuthContext";
 
 interface TeamProfile {
   id: string;
