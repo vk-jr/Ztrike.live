@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { Bell, X, MessageSquare, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/lib/auth/AuthContext";
@@ -11,7 +11,10 @@ import { useRouter } from "next/navigation";
 import { getUserNotifications, markNotificationAsRead, markAllNotificationsAsRead } from "@/lib/notificationActions";
 import type { Notification } from "@/types/notification";
 import { formatDistanceToNow } from "date-fns";
+<<<<<<< HEAD
 import Link from "next/link";
+=======
+>>>>>>> 6e5b227c19f69feb43ebe009347863fd398c2203
 
 interface EnhancedNotification extends Notification {
   fromUser: {
@@ -20,7 +23,10 @@ interface EnhancedNotification extends Notification {
     photoURL?: string;
   } | null;
   avatar?: string; // For backwards compatibility
+<<<<<<< HEAD
   link?: string;
+=======
+>>>>>>> 6e5b227c19f69feb43ebe009347863fd398c2203
 }
 
 export default function AlertsPage() {
@@ -151,6 +157,7 @@ export default function AlertsPage() {
                   </div>
 
                   <div className="flex-1">
+<<<<<<< HEAD
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                       <CardTitle className="text-sm font-medium">
                         <Link href={notification.link || "#"} className="hover:underline">
@@ -163,6 +170,28 @@ export default function AlertsPage() {
                           : formatDistanceToNow((notification.createdAt as any)?.toDate(), { addSuffix: true })}
                       </span>
                     </CardHeader>
+=======
+                    <h3 className="font-medium text-gray-900 mb-1">
+                      {notification.title}
+                    </h3>
+                    <p className="text-sm text-gray-600 mb-2">
+                      {notification.description}
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-gray-500">
+                        {formatDistanceToNow(
+                          new Date(notification.createdAt instanceof Date ? 
+                            notification.createdAt : 
+                            notification.createdAt.toDate()
+                          ), 
+                          { addSuffix: true }
+                        )}
+                      </span>
+                      {!notification.read && (
+                        <Badge variant="default" className="bg-blue-600">New</Badge>
+                      )}
+                    </div>
+>>>>>>> 6e5b227c19f69feb43ebe009347863fd398c2203
                   </div>
                 </div>
               </CardContent>

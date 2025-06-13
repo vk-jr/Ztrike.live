@@ -23,7 +23,11 @@ export default function ProfilePage() {
   const params = useParams();
   const router = useRouter();
   const { user } = useAuth();
+<<<<<<< HEAD
   const userId = typeof params?.id === 'string' ? params.id : '';
+=======
+  const userId = typeof params.id === 'string' ? params.id : '';
+>>>>>>> 6e5b227c19f69feb43ebe009347863fd398c2203
   const [userProfileData, setUserProfileData] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [isConnecting, setIsConnecting] = useState(false);
@@ -130,7 +134,11 @@ export default function ProfilePage() {
 
       // Add optional fields only if they exist
       if (user.displayName || user.email) {
+<<<<<<< HEAD
         messageData.senderName = user.displayName ?? user.email ?? undefined; // Use nullish coalescing to ensure undefined instead of null
+=======
+        messageData.senderName = user.displayName ?? user.email; // Use nullish coalescing
+>>>>>>> 6e5b227c19f69feb43ebe009347863fd398c2203
       }
       if (user.photoURL) {
         messageData.senderPhotoURL = user.photoURL;
@@ -527,9 +535,15 @@ export default function ProfilePage() {
                                 {player.number && ` • #${player.number}`}
                               </div>
                               <div className="text-xs text-gray-500">
+<<<<<<< HEAD
                                 Joined {player.joinDate instanceof Date ?
                                   player.joinDate.toLocaleDateString() :
                                   (player.joinDate as any).toDate().toLocaleDateString()}
+=======
+                                Joined {player.joinDate instanceof Date ? 
+                                  player.joinDate.toLocaleDateString() : 
+                                  new Date(player.joinDate).toLocaleDateString()}
+>>>>>>> 6e5b227c19f69feb43ebe009347863fd398c2203
                               </div>
                             </div>
                           </Link>

@@ -129,7 +129,7 @@ export default function PostDisplay({ userId, showNetworkPosts = false, showAllP
     };
 
     fetchPosts();
-  }, [userId, showNetworkPosts]);
+  }, [userId, showNetworkPosts, showAllPosts]);
 
   if (loading) {
     return (
@@ -199,6 +199,7 @@ export default function PostDisplay({ userId, showNetworkPosts = false, showAllP
                 <div>
                   <p className="font-semibold">{post.authorName}</p>
                   <p className="text-sm text-gray-500">
+<<<<<<< HEAD
                     {post.createdAt instanceof Date
                       ? post.createdAt.toLocaleString("en-US", {
                           month: "short",
@@ -214,6 +215,17 @@ export default function PostDisplay({ userId, showNetworkPosts = false, showAllP
                           hour: "numeric",
                           minute: "numeric",
                         })}
+=======
+                    {post.createdAt ? 
+                      (typeof post.createdAt === 'object' && 'toDate' in post.createdAt
+                        ? post.createdAt.toDate().toLocaleString('en-US', {
+                            year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: 'numeric'
+                          })
+                        : new Date(post.createdAt).toLocaleString('en-US', {
+                            year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: 'numeric'
+                          }))
+                    : 'N/A'}
+>>>>>>> 6e5b227c19f69feb43ebe009347863fd398c2203
                   </p>
                 </div>
               </Link>

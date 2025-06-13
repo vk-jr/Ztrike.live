@@ -1,9 +1,18 @@
 import LeagueDetailsClient from "./LeagueDetailsClient";
+<<<<<<< HEAD
 import { collection, getDocs } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 
 export default function LeagueDetailsPage({ params }: { params: any }) {
   const leagueId = decodeURIComponent(params.leagueId as string);
+=======
+import { useParams } from "next/navigation";
+import { collection, getDocs } from "firebase/firestore";
+import { db } from "@/lib/firebase";
+
+export default function LeagueDetailsPage({ params }: { params: { leagueId: string } }) {
+  const leagueId = decodeURIComponent(params.leagueId);
+>>>>>>> 6e5b227c19f69feb43ebe009347863fd398c2203
   return <LeagueDetailsClient leagueId={leagueId} />;
 }
 

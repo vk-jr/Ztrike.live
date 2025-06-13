@@ -357,9 +357,15 @@ function ProfilePage() {
                                 {player.number && ` • #${player.number}`}
                               </div>
                               <div className="text-xs text-gray-500">
+<<<<<<< HEAD
                                 Joined {player.joinDate instanceof Date ?
                                   player.joinDate.toLocaleDateString() :
                                   (player.joinDate as any)?.toDate().toLocaleDateString()}
+=======
+                                Joined {player.joinDate instanceof Date ? 
+                                  player.joinDate.toLocaleDateString() : 
+                                  new Date(player.joinDate).toLocaleDateString()}
+>>>>>>> 6e5b227c19f69feb43ebe009347863fd398c2203
                               </div>
                             </div>
                           </Link>

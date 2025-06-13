@@ -6,7 +6,11 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+<<<<<<< HEAD
     "lint": "next lint",
+=======
+    "lint": "bunx biome lint --write && bunx tsc --noEmit",
+>>>>>>> 6e5b227c19f69feb43ebe009347863fd398c2203
     "format": "bunx biome format --write",
     "dev:all": "pwsh .\\dev-script.ps1",
     "firebase:emulate": "firebase emulators:start",
@@ -35,12 +39,28 @@
     "react-firebase-hooks": "^5.1.1",
     "styled-jsx": "^5.1.7",
     "tailwind-merge": "^3.3.0",
-    "tailwindcss-animate": "^1.0.7"
+    "tailwindcss-animate": "^1.0.7",
+    "assert": "^2.1.0",
+    "browserify-zlib": "^0.2.0",
+    "buffer": "^6.0.3",
+    "crypto-browserify": "^3.12.0",
+    "https-browserify": "^1.0.0",
+    "os-browserify": "^0.3.0",
+    "path-browserify": "^1.0.1",
+    "process": "^0.11.10",
+    "stream-browserify": "^3.0.0",
+    "stream-http": "^3.2.0",
+    "url": "^0.11.3"
   },
   "devDependencies": {
     "@biomejs/biome": "1.9.4",
     "@eslint/eslintrc": "^3.3.1",
+<<<<<<< HEAD
     "@next/eslint-plugin-next": "14.2.5",
+=======
+    "@netlify/plugin-nextjs": "^5.11.2",
+    "@next/eslint-plugin-next": "^15.3.2",
+>>>>>>> 6e5b227c19f69feb43ebe009347863fd398c2203
     "@types/node": "^20.17.50",
     "@types/react": "^18.3.22",
     "@types/react-dom": "^18.3.7",

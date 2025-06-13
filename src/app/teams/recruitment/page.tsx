@@ -8,6 +8,10 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { ApplicationDialog } from "./ApplicationDialog";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
+<<<<<<< HEAD
+=======
+import { Application, RecruitmentItem } from "@/types/application";
+>>>>>>> 6e5b227c19f69feb43ebe009347863fd398c2203
 
 export default function RecruiterHubPage() {
   return (
@@ -18,10 +22,17 @@ export default function RecruiterHubPage() {
 }
 
 function RecruiterHub() {
+<<<<<<< HEAD
   const [selectedApplication, setSelectedApplication] = useState<any>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
 
   const recruitmentItems = [
+=======
+  const [selectedApplication, setSelectedApplication] = useState<Application | null>(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
+
+  const recruitmentItems: RecruitmentItem[] = [
+>>>>>>> 6e5b227c19f69feb43ebe009347863fd398c2203
     {
       title: "Open Positions",
       count: 12,
