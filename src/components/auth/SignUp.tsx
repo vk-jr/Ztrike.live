@@ -24,40 +24,46 @@ const SPORTS_PLATFORMS = [
 interface FormData {
   firstName: string;
   lastName: string;
+  name: string;
   email: string;
   password: string;
   confirmPassword: string;
+  userType: 'player' | 'team' | 'league'; // Changed 'athlete' to 'player' here
 }
 
 type ValidationErrors = Partial<Record<keyof FormData, string>>;
 
-export function SignUp() {  const [formData, setFormData] = useState<FormData>({
+export function SignUp() {
+  const [formData, setFormData] = useState<FormData>({
     firstName: '',
     lastName: '',
+    name: '',
     email: '',
     password: '',
-    confirmPassword: ''
+    confirmPassword: '',
+    userType: 'player' // Changed initial state from 'athlete' to 'player'
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [validationErrors, setValidationErrors] = useState<ValidationErrors>({});
-  const [showSportsForm, setShowSportsForm] = useState(false);
-  const [selectedSports, setSelectedSports] = useState<string[]>([]);
-  const [currentTeam, setCurrentTeam] = useState('');
-  const [sportsAccounts, setSportsAccounts] = useState<{ [key: string]: string }>({});
-  const [tempUserData, setTempUserData] = useState<User | null>(null);
-  const { signUp, signInWithGoogle } = useAuth();
   const router = useRouter();
+  const { signUp, signInWithGoogle } = useAuth();
 
   const validateForm = () => {
     const errors: ValidationErrors = {};
     
-    if (!formData.firstName.trim()) {
-      errors.firstName = 'First name is required';
-    }
-    
-    if (!formData.lastName.trim()) {
-      errors.lastName = 'Last name is required';
+    if (formData.userType === 'player') { // Changed 'athlete' to 'player'
+      if (!formData.firstName.trim()) {
+        errors.firstName = 'First name is required';
+      }
+      
+      if (!formData.lastName.trim()) {
+        errors.lastName = 'Last name is required';
+      }
+    } else {
+      if (!formData.name.trim()) {
+        errors.name = 'Name is required';
+      }
     }
     
     if (!formData.email.trim()) {
@@ -80,29 +86,67 @@ export function SignUp() {  const [formData, setFormData] = useState<FormData>({
 
     setValidationErrors(errors);
     return Object.keys(errors).length === 0;
-  };  const createProfile = async (user: User, displayName?: string) => {
+  };
+
+  const createProfile = async (user: User, displayName?: string) => {
     const profile: Partial<UserProfile> = {
       id: user.uid,
       email: user.email || '',
-      firstName: formData.firstName,
-      lastName: formData.lastName,
-      displayName: displayName || user.displayName || `${formData.firstName} ${formData.lastName}`,
+      firstName: formData.userType === 'player' ? formData.firstName : '', // Changed 'athlete' to 'player'
+      lastName: formData.userType === 'player' ? formData.lastName : '', // Changed 'athlete' to 'player'
+      displayName: displayName || user.displayName || (formData.userType === 'player' ? `${formData.firstName} ${formData.lastName}` : formData.name), // Changed 'athlete' to 'player'
       photoURL: user.photoURL || '',
       bio: '',
+      userType: formData.userType === 'player' ? 'player' : formData.userType, // Ensure userType is 'player' for athletes
       teams: [],
       leagues: [],
       connections: [],
       pendingRequests: [],
       sentRequests: [],
       postViews: 0,
-      sports: selectedSports,
-      currentTeam: currentTeam || undefined,
-      sportsAccounts: Object.keys(sportsAccounts).length > 0 ? sportsAccounts : undefined,
+      // Removed sports, currentTeam, sportsAccounts from initial profile creation
+      // These will be handled on the athlete-team-info page
+
+      ...(formData.userType === 'team' && {
+        teamInfo: {
+          wins: 0,
+          losses: 0,
+          draws: 0,
+          players: [],
+          matchesPlayed: 0, // Added missing property
+          recruiterInfo: {
+            openPositions: [],
+            requirements: []
+          }
+        }
+      }),
+      ...(formData.userType === 'league' && {
+        leagueInfo: {
+          teamsCount: 0,
+          currentSeason: new Date().getFullYear().toString(),
+          pointsSystem: {
+            win: 3,
+            draw: 1,
+            loss: 0
+          }
+        }
+      }),
       createdAt: new Date(),
       updatedAt: new Date()
     };
     await createUserProfile(user.uid, profile);
+
+    // Redirect based on user type after profile creation
+    if (profile.userType === 'player') { // Changed 'athlete' to 'player'
+      router.push('/sign-up/athlete-team-info');
+    } else if (profile.userType === 'team') {
+      router.push('/onboarding/team-league-info');
+    } else {
+      // Default redirect for other user types or if userType is not set
+      router.push('/profile');
+    }
   };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -115,8 +159,17 @@ export function SignUp() {  const [formData, setFormData] = useState<FormData>({
     try {
       const userCredential = await signUp(formData.email, formData.password);
       const { user } = userCredential;
-      setTempUserData(user);
-      setShowSportsForm(true);
+      // For email/password sign up, if it's a team or league, we need to get the name first
+      if (formData.userType !== 'player') { // Changed 'athlete' to 'player'
+        if (!formData.name.trim()) {
+          setError('Please enter a name before continuing');
+          setLoading(false);
+          return;
+        }
+      }
+      // Directly create profile and redirect
+      await createProfile(user, formData.userType === 'player' ? `${formData.firstName} ${formData.lastName}` : formData.name); // Changed 'athlete' to 'player'
+
     } catch (error: any) {
       console.error('Error signing up:', error);
       setError(error?.message || 'Failed to create account. Please try again.');
@@ -124,6 +177,7 @@ export function SignUp() {  const [formData, setFormData] = useState<FormData>({
       setLoading(false);
     }
   };
+
   const handleGoogleSignIn = async () => {
     setLoading(true);
     setError('');
@@ -131,8 +185,16 @@ export function SignUp() {  const [formData, setFormData] = useState<FormData>({
       const result = await signInWithGoogle();
       const { user } = result;
       if (user) {
-        setTempUserData(user);
-        setShowSportsForm(true);
+        // For Google sign in, if it's a team or league, we need to get the name first
+        if (formData.userType !== 'player') { // Changed 'athlete' to 'player'
+          if (!formData.name.trim()) {
+            setError('Please enter a name before continuing');
+            setLoading(false);
+            return;
+          }
+        }
+        // Directly create profile and redirect
+        await createProfile(user, user.displayName || (formData.userType === 'player' ? `${formData.firstName} ${formData.lastName}` : formData.name)); // Changed 'athlete' to 'player'
       }
     } catch (error: any) {
       console.error('Error signing in with Google:', error);
@@ -144,10 +206,22 @@ export function SignUp() {  const [formData, setFormData] = useState<FormData>({
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
+    setFormData(prev => {
+      // When user type changes, reset the name fields
+      if (name === 'userType') {
+        return {
+          ...prev,
+          firstName: '',
+          lastName: '',
+          name: '',
+          userType: value as 'player' | 'team' | 'league', // Cast value to correct type
+        };
+      }
+      return {
+        ...prev,
+        [name]: value
+      };
+    });
     // Clear validation error when user starts typing
     if (validationErrors[name as keyof FormData]) {
       setValidationErrors(prev => ({
@@ -157,130 +231,87 @@ export function SignUp() {  const [formData, setFormData] = useState<FormData>({
     }
   };
 
-  if (showSportsForm && tempUserData) {
-    return (
-      <Card className="w-full max-w-md p-6 space-y-4">
-        <h2 className="text-2xl font-bold text-center">Tell us about your sports</h2>
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <label className="block text-sm font-medium">Select sports you play</label>
-            <div className="grid grid-cols-2 gap-2">
-              {COMMON_SPORTS.map((sport) => (
-                <label key={sport} className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"
-                    checked={selectedSports.includes(sport)}
-                    onChange={(e) => {
-                      if (e.target.checked) {
-                        setSelectedSports([...selectedSports, sport]);
-                      } else {
-                        setSelectedSports(selectedSports.filter(s => s !== sport));
-                      }
-                    }}
-                    className="rounded border-gray-300"
-                  />
-                  <span>{sport}</span>
-                </label>
-              ))}
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <label className="block text-sm font-medium">Current Team (if any)</label>
-            <Input
-              type="text"
-              placeholder="Enter your current team name"
-              value={currentTeam}
-              onChange={(e) => setCurrentTeam(e.target.value)}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <label className="block text-sm font-medium">Sports Social Media Accounts</label>
-            {SPORTS_PLATFORMS.map((platform) => (
-              <Input
-                key={platform}
-                type="text"
-                placeholder={`${platform} username (optional)`}
-                value={sportsAccounts[platform] || ''}
-                onChange={(e) => {
-                  if (e.target.value) {
-                    setSportsAccounts({ ...sportsAccounts, [platform]: e.target.value });
-                  } else {
-                    const newAccounts = { ...sportsAccounts };
-                    delete newAccounts[platform];
-                    setSportsAccounts(newAccounts);
-                  }
-                }}
-              />
-            ))}
-          </div>
-
-          {error && (
-            <div className="text-sm text-red-500 text-center">{error}</div>
-          )}
-
-          <Button
-            type="button"
-            className="w-full"
-            disabled={loading}
-            onClick={async () => {
-              try {
-                setLoading(true);
-                await createProfile(
-                  tempUserData,
-                  `${formData.firstName} ${formData.lastName}`
-                );
-                router.push('/profile');
-              } catch (error: any) {
-                console.error('Error updating profile:', error);
-                setError(error?.message || 'Failed to update profile. Please try again.');
-              } finally {
-                setLoading(false);
-              }
-            }}
-          >
-            {loading ? 'Completing signup...' : 'Complete Profile'}
-          </Button>
-        </div>
-      </Card>
-    );
-  }
-
   return (
     <Card className="w-full max-w-md p-6 space-y-4">
       <h2 className="text-2xl font-bold text-center">Create your ZTRIKE Account</h2>
       <form onSubmit={handleSubmit} className="space-y-4">
-        <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <Input
-              name="firstName"
-              placeholder="First Name"
-              value={formData.firstName}
-              onChange={handleInputChange}
-              required
-              disabled={loading}
+        {/* User Type Selection */}
+        <div className="space-y-2">
+          <label className="block text-sm font-medium text-gray-700">I am a(n)</label>
+          <div className="grid grid-cols-3 gap-2">
+            <Button
+              type="button"
+              variant={formData.userType === 'player' ? 'default' : 'outline'} // Changed 'athlete' to 'player'
               className="w-full"
-            />
-            {validationErrors.firstName && (
-              <div className="text-xs text-red-500">{validationErrors.firstName}</div>
-            )}
-          </div>
-          <div className="space-y-2">
-            <Input
-              name="lastName"
-              placeholder="Last Name"
-              value={formData.lastName}
-              onChange={handleInputChange}
-              required
-              disabled={loading}
+              onClick={() => setFormData(prev => ({ ...prev, userType: 'player' }))} // Changed 'athlete' to 'player'
+            >
+              Athlete
+            </Button>
+            <Button
+              type="button"
+              variant={formData.userType === 'team' ? 'default' : 'outline'}
               className="w-full"
-            />
-            {validationErrors.lastName && (
-              <div className="text-xs text-red-500">{validationErrors.lastName}</div>
-            )}
+              onClick={() => setFormData(prev => ({ ...prev, userType: 'team' }))}
+            >
+              Team
+            </Button>
+            <Button
+              type="button"
+              variant={formData.userType === 'league' ? 'default' : 'outline'}
+              className="w-full"
+              onClick={() => setFormData(prev => ({ ...prev, userType: 'league' }))}
+            >
+              League
+            </Button>
           </div>
         </div>
+        {formData.userType === 'player' ? ( // Changed 'athlete' to 'player'
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Input
+                name="firstName"
+                placeholder="First Name"
+                value={formData.firstName}
+                onChange={handleInputChange}
+                required
+                disabled={loading}
+                className="w-full"
+              />
+              {validationErrors.firstName && (
+                <div className="text-xs text-red-500">{validationErrors.firstName}</div>
+              )}
+            </div>
+            <div className="space-y-2">
+              <Input
+                name="lastName"
+                placeholder="Last Name"
+                value={formData.lastName}
+                onChange={handleInputChange}
+                required
+                disabled={loading}
+                className="w-full"
+              />
+              {validationErrors.lastName && (
+                <div className="text-xs text-red-500">{validationErrors.lastName}</div>
+              )}
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            <Input
+              name="name"
+              placeholder={formData.userType === 'team' ? "Team Name" : "League Name"}
+              value={formData.name}
+              onChange={handleInputChange}
+              required
+              disabled={loading}
+              className="w-full"
+            />
+            {validationErrors.name && (
+              <div className="text-xs text-red-500">{validationErrors.name}</div>
+            )}
+          </div>
+        )}
         <div className="space-y-2">
           <Input
             name="email"

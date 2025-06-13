@@ -15,6 +15,11 @@ import {
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth/AuthContext";
+import { useEffect, useState } from "react";
+import { getUnreadMessagesCount, searchUsers } from "@/lib/db";
+import { useNotificationCount } from "@/hooks/useNotificationCount";
+import { SearchResults } from "@/components/SearchResults";
+import type { UserProfile } from "@/types/database";
 
 export default function Navbar() {
   const pathname = usePathname();
@@ -30,6 +35,45 @@ export default function Navbar() {
     }
   };
 
+  const [unreadMessages, setUnreadMessages] = useState(0);
+  const unreadNotifications = useNotificationCount();
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<UserProfile[]>([]);
+  const [showResults, setShowResults] = useState(false);
+
+  // Debounce search
+  useEffect(() => {
+    const timer = setTimeout(async () => {
+      if (searchQuery.trim()) {
+        const results = await searchUsers(searchQuery.trim());
+        setSearchResults(results);
+      } else {
+        setSearchResults([]);
+      }
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchQuery(e.target.value);
+    setShowResults(true);
+  };
+
+  useEffect(() => {
+    const fetchUnreadCount = async () => {
+      if (user) {
+        const count = await getUnreadMessagesCount(user.uid);
+        setUnreadMessages(count);
+      }
+    };
+    fetchUnreadCount();
+
+    // Refresh count every minute
+    const interval = setInterval(fetchUnreadCount, 60000);
+    return () => clearInterval(interval);
+  }, [user]);
+
   const navItems = [
     { name: "Home", href: "/", icon: Home },
     ...(user ? [
@@ -37,8 +81,8 @@ export default function Navbar() {
       { name: "Leagues", href: "/leagues", icon: Trophy },
       { name: "Teams", href: "/teams", icon: TeamsIcon },
       { name: "My Profile", href: "/profile", icon: User },
-      { name: "Messages", href: "/messages", icon: MessageSquare, badge: "3" },
-      { name: "Alerts", href: "/alerts", icon: Bell, badge: "6" },
+      { name: "Messages", href: "/messages", icon: MessageSquare, badge: unreadMessages > 0 ? String(unreadMessages) : undefined },
+      { name: "Alerts", href: "/alerts", icon: Bell, badge: unreadNotifications > 0 ? String(unreadNotifications) : undefined },
     ] : [])
   ];
 
@@ -49,10 +93,8 @@ export default function Navbar() {
           {/* Logo */}
           <div className="flex items-center">
             <Link href="/" className="flex items-center space-x-2">
-              <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
-                <div className="w-6 h-6 border-2 border-white rounded-full relative">
-                  <div className="absolute inset-1 border border-white rounded-full"></div>
-                </div>
+              <div className="w-8 h-8">
+                <img src="/images/logo.png" alt="Ztrike Logo" className="w-full h-full" />
               </div>
               <span className="text-xl font-bold text-gray-900">ZTRIKE</span>
             </Link>
@@ -67,7 +109,23 @@ export default function Navbar() {
                   type="text"
                   placeholder="Search athletes, teams, leagues..."
                   className="pl-10 bg-gray-50 border-gray-200 focus:bg-white"
+                  value={searchQuery}
+                  onChange={handleSearchChange}
+                  onFocus={() => setShowResults(true)}
                 />
+                {showResults && searchResults.length > 0 && (
+                  <div className="fixed inset-0 z-40" onClick={() => setShowResults(false)}>
+                    <div className="absolute z-50 left-1/2 transform -translate-x-1/2" style={{ top: '4rem', width: '32rem' }}>
+                      <SearchResults 
+                        results={searchResults} 
+                        onResultClick={() => {
+                          setShowResults(false);
+                          setSearchQuery('');
+                        }} 
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}

@@ -12,6 +12,7 @@ import { getPendingRequests, acceptConnectionRequest, rejectConnectionRequest, g
 import type { UserProfile } from "@/types/database";
 import PeopleYouMayKnow from "@/components/people/PeopleYouMayKnow";
 import { toast } from "@/components/ui/use-toast";
+import Link from "next/link";
 
 export default function NetworkPage() {
   const { user } = useAuth();
@@ -192,7 +193,7 @@ export default function NetworkPage() {
                 <div className="space-y-4">
                   {connections.map((connection) => (
                     <div key={connection.id} className="flex items-center justify-between p-4 border rounded-lg">
-                      <div className="flex items-center space-x-4">
+                      <Link href={`/profile/${connection.id}`} className="flex items-center space-x-4 cursor-pointer">
                         <Avatar className="h-12 w-12">
                           <AvatarImage src={connection.photoURL || ''} />
                           <AvatarFallback>{connection.displayName?.[0] || 'U'}</AvatarFallback>
@@ -201,7 +202,7 @@ export default function NetworkPage() {
                           <h3 className="font-semibold text-gray-900">{connection.displayName}</h3>
                           <p className="text-sm text-gray-600">{connection.email}</p>
                         </div>
-                      </div>
+                      </Link>
                       <Button variant="outline" size="sm" className="flex items-center gap-2">
                         <UserCheck className="h-4 w-4" />
                         Connected
@@ -232,7 +233,7 @@ export default function NetworkPage() {
                 <div className="space-y-4">
                   {pendingRequests.map((request) => (
                     <div key={request.id} className="flex items-center justify-between p-4 border rounded-lg">
-                      <div className="flex items-center space-x-4">
+                      <Link href={`/profile/${request.id}`} className="flex items-center space-x-4 cursor-pointer">
                         <Avatar className="h-12 w-12">
                           <AvatarImage src={request.photoURL || ''} />
                           <AvatarFallback>
@@ -243,7 +244,7 @@ export default function NetworkPage() {
                           <h3 className="font-semibold text-gray-900">{request.displayName}</h3>
                           <p className="text-sm text-gray-600">{request.email}</p>
                         </div>
-                      </div>
+                      </Link>
                       <div className="flex items-center gap-2">
                         <Button
                           variant="outline"
@@ -278,8 +279,10 @@ export default function NetworkPage() {
         </TabsContent>
       </Tabs>
 
-      {/* People You May Know */}
-      {user && <PeopleYouMayKnow userId={user.uid} />}
+      {/* People You May Know Section */}
+      <div className="mt-6">
+        <PeopleYouMayKnow />
+      </div>
     </div>
   );
 }

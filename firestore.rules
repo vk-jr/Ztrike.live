@@ -20,8 +20,10 @@ service cloud.firestore {
     // User profiles
     match /users/{userId} {
       allow read: if isAuthenticated();
-      allow create: if isAuthenticated() && isOwner(userId);
-      allow update: if isAuthenticated() && isOwner(userId);
+      allow create, update: if isAuthenticated() && (
+        isOwner(userId) || 
+        !exists(/databases/$(database)/documents/users/$(userId))  // Allow creation if profile doesn't exist
+      );
       allow delete: if isAuthenticated() && isOwner(userId);
     }
 

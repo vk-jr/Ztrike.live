@@ -3,7 +3,9 @@ export interface UserProfile {  id: string;
   firstName: string;
   lastName: string;
   displayName: string;
+  displayNameLower: string;  // Lowercase version of displayName for case-insensitive search
   photoURL?: string;
+  bannerURL?: string;  // User's profile banner image URL
   bio?: string;
   teams: string[]; // Array of team IDs
   leagues: string[]; // Array of league IDs
@@ -18,57 +20,94 @@ export interface UserProfile {  id: string;
   };
   createdAt: Date | { toDate(): Date };
   updatedAt: Date | { toDate(): Date };
+  accountType?: 'team' | 'athlete'; // Add accountType property
+  
+  // Player performance stats
+  position?: string;
+  matchesPlayed?: number;
+  Goals?: number;
+  assist?: number;
+  MVPs?: number;
+  Saves?: number;
+  wins?: number;
+  losses?: number;
+  clean_sheets?: number;
+  rankScore?: number;
+  
+  // Player achievements
+  achievements?: {
+    title: string;
+    description: string;
+    year: string;
+  }[];
+  
+  // Team-specific fields
+  userType?: 'team' | 'player' | 'league'; // Add 'league' as a valid userType
+  teamInfo?: {
+    logo?: string;
+    wins: number;
+    losses: number;
+    draws: number;
+    players: TeamPlayer[];
+    matchesPlayed: number;
+    league?: string;
+    clean_sheets?: number;
+    recruiterInfo?: {
+      openPositions: string[];
+      requirements: string[];
+    };
+    location?: string;
+  };
+  
+  // League-specific fields
+  leagueInfo?: {
+    teamsCount: number;
+    currentSeason: string;
+    pointsSystem: {
+      win: number;
+      draw: number;
+      loss: number;
+    };
+    // Add other league-specific fields as needed
+  };
+}
+
+export interface TeamPlayer {
+  id: string;
+  name: string;
+  position: string;
+  number?: number;
+  joinDate: Date | { toDate(): Date };
 }
 
 export interface Team {
   id: string;
   name: string;
-  logo?: string;
-  description?: string;
   sport: string;
-  members: {
-    [userId: string]: 'owner' | 'admin' | 'player';
-  };
-  leagueIds: string[];
-  wins: number;
-  losses: number;
-  draws: number;
-  createdAt: Date;
-  updatedAt: Date;
+  logo?: string;
 }
 
 export interface League {
   id: string;
   name: string;
-  description?: string;
   sport: string;
-  teams: string[]; // Array of team IDs
-  status: 'upcoming' | 'active' | 'completed';
-  schedule: Match[];
-  startDate: Date;
-  endDate: Date;
-  createdBy: string; // User ID
-  createdAt: Date;
-  updatedAt: Date;
+  teams: string[];
 }
 
 export interface Match {
   id: string;
-  leagueId: string;
-  homeTeam: {
-    id: string;
-    score: number;
-  };
-  awayTeam: {
-    id: string;
-    score: number;
-  };
+  teamIds: string[];
   status: 'scheduled' | 'live' | 'completed';
-  startTime: Date;
+  score: {
+    home: number;
+    away: number;
+  };
+  startTime: Date | { toDate(): Date };
   location?: string;
-  highlights?: string[];
-  createdAt: Date;
-  updatedAt: Date;
+  leagueId?: string;
+  creatorId: string;
+  createdAt: Date | { toDate(): Date };
+  updatedAt: Date | { toDate(): Date };
 }
 
 export interface Message {
@@ -77,27 +116,46 @@ export interface Message {
   receiverId: string;
   content: string;
   read: boolean;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: Date | { toDate(): Date };
+  updatedAt: Date | { toDate(): Date };
+  senderName?: string;
+  senderPhotoURL?: string;
+  receiverName?: string;
+  receiverPhotoURL?: string;
+}
+
+export interface Comment {
+  id: string;
+  postId: string;
+  authorId: string;
+  content: string;
+  createdAt: Date | { toDate(): Date };
+  authorName?: string; // Add authorName
+  authorPhotoURL?: string; // Add authorPhotoURL
 }
 
 export interface Post {
   id: string;
   content: string;
-  imageUrl?: string;
   authorId: string;
-  authorName?: string;
-  authorPhotoURL?: string;
-  likes: number;
-  comments: Comment[];
   createdAt: Date | { toDate(): Date };
   updatedAt: Date | { toDate(): Date };
+  imageUrl?: string; // Add imageUrl
+  likes: number; // Add likes
+  likedBy: string[]; // Add likedBy
+  comments: Comment[]; // Add comments
+  authorName?: string; // Add authorName
+  authorPhotoURL?: string; // Add authorPhotoURL
 }
 
-export interface Comment {
-  id: string;
-  content: string;
-  authorId: string;
-  createdAt: Date;
-  updatedAt: Date;
+export interface Application {
+  id?: string; // Firestore document ID
+  applicantId: string; // User ID (athlete or team)
+  applicantType: 'player' | 'team';
+  targetTeamId?: string; // Optional: If applying to a specific team
+  targetTeamName?: string; // Optional: If applying to a specific team by name
+  targetLeagueId?: string; // Optional: If applying to a specific league
+  targetLeagueName?: string; // Optional: If applying to a specific league by name
+  status: 'pending' | 'approved' | 'rejected';
+  createdAt: Date | { toDate(): Date };
 }

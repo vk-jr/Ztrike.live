@@ -7,6 +7,7 @@ import { getSuggestedUsers, createConnectionRequest } from "@/lib/db";
 import type { UserProfile } from "@/types/database";
 import { useAuth } from '@/lib/auth';
 import { Skeleton } from '@/components/ui/skeleton';
+import Link from "next/link";
 
 interface PeopleYouMayKnowProps {
   className?: string;
@@ -120,7 +121,7 @@ export default function PeopleYouMayKnow({ className = "" }: PeopleYouMayKnowPro
       </CardHeader>
       <CardContent>        <div className="divide-y">
           {suggestedUsers.map((suggestedUser) => (<div key={suggestedUser.id} className="flex items-center justify-between px-4 py-3">
-              <div className="flex items-center gap-3 flex-1 min-w-0 pr-4">
+              <Link href={`/profile/${suggestedUser.id}`} className="flex items-center gap-3 flex-1 min-w-0 pr-4 cursor-pointer">
                 <Avatar>
                   <AvatarImage src={suggestedUser.photoURL || undefined} alt={suggestedUser.displayName || 'User'} />
                   <AvatarFallback className="bg-blue-100 text-blue-600">
@@ -131,7 +132,7 @@ export default function PeopleYouMayKnow({ className = "" }: PeopleYouMayKnowPro
                   <p className="font-medium truncate">{suggestedUser.displayName}</p>
                   <p className="text-sm text-muted-foreground truncate">{suggestedUser.email}</p>
                 </div>
-              </div>
+              </Link>
               <Button                variant="outline"
                 size="sm"
                 onClick={() => handleConnect(suggestedUser.id)}

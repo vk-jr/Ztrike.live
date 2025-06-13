@@ -1,287 +1,576 @@
 "use client";
 
-import { Trophy, Users, Target, Calendar, Bell, Clock, MapPin, Eye } from "lucide-react";
+import { Trophy, Users, Target, Calendar, Bell, Clock, MapPin, Eye, UserCheck, Search, Filter, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { useAuth } from "@/lib/auth/AuthContext";
+import { PlayerCard } from "@/components/teams/PlayerCard";
+import { PlayerFilters } from "@/components/teams/PlayerFilters";
+import { Input } from "@/components/ui/input";
+import { useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
+import { collection, getDocs, query, where } from "firebase/firestore";
+import { db } from "@/lib/firebase";
+import Image from 'next/image';
+
+// Sport-specific sorting functions
+const sortFootballPlayers = (a: any, b: any) => {
+  switch(a.position?.toLowerCase()) {
+    case 'striker':
+      if (b.Goals !== a.Goals) return b.Goals - a.Goals;
+      if (b.MVPs !== a.MVPs) return b.MVPs - a.MVPs;
+      if (b.matches_played !== a.matches_played) return b.matches_played - a.matches_played;
+      return b.assist - a.assist;
+    case 'defender':
+      if (b.Saves !== a.Saves) return b.Saves - a.Saves;
+      if (b.MVPs !== a.MVPs) return b.MVPs - a.MVPs;
+      if (b.assist !== a.assist) return b.assist - a.assist;
+      return b.matches_played - a.matches_played;
+    case 'goalkeeper':
+      if (b.Saves !== a.Saves) return b.Saves - a.Saves;
+      if (b.MVPs !== a.MVPs) return b.MVPs - a.MVPs;
+      return b.matches_played - a.matches_played;
+    default:
+      return 0;
+  }
+};
+
+const sortCricketPlayers = (a: any, b: any) => {
+  switch(a.position?.toLowerCase()) {
+    case 'batsman':
+      if (b.runs !== a.runs) return b.runs - a.runs;
+      if (b.centuries !== a.centuries) return b.centuries - a.centuries;
+      return b.strike_rate - a.strike_rate;
+    case 'bowler':
+      if (b.wickets !== a.wickets) return b.wickets - a.wickets;
+      if (b.economy !== a.economy) return a.economy - b.economy;
+      return b.matches_played - a.matches_played;
+    case 'all-rounder':
+      if (b.MVPs !== a.MVPs) return b.MVPs - a.MVPs;
+      if (b.runs !== a.runs) return b.runs - a.runs;
+      return b.wickets - a.wickets;
+    default:
+      return 0;
+  }
+};
+
+const sortBasketballPlayers = (a: any, b: any) => {
+  switch(a.position?.toLowerCase()) {
+    case 'point guard':
+    case 'shooting guard':
+      if (b.points !== a.points) return b.points - a.points;
+      if (b.assists !== a.assists) return b.assists - a.assists;
+      return b.steals - a.steals;
+    case 'forward':
+      if (b.points !== a.points) return b.points - a.points;
+      if (b.rebounds !== a.rebounds) return b.rebounds - a.rebounds;
+      return b.blocks - a.blocks;
+    case 'center':
+      if (b.rebounds !== a.rebounds) return b.rebounds - a.rebounds;
+      if (b.blocks !== a.blocks) return b.blocks - a.blocks;
+      return b.points - a.points;
+    default:
+      return 0;
+  }
+};
+
+const sortHockeyPlayers = (a: any, b: any) => {
+  switch(a.position?.toLowerCase()) {
+    case 'forward':
+      if (b.goals !== a.goals) return b.goals - a.goals;
+      if (b.assists !== a.assists) return b.assists - a.assists;
+      return b.points - a.points;
+    case 'defender':
+      if (b.blocks !== a.blocks) return b.blocks - a.blocks;
+      if (b.saves !== a.saves) return b.saves - a.saves;
+      return b.penalties - a.penalties;
+    case 'goalkeeper':
+      if (b.saves !== a.saves) return b.saves - a.saves;
+      if (b.clean_sheets !== a.clean_sheets) return b.clean_sheets - a.clean_sheets;
+      return b.matches_played - a.matches_played;
+    default:
+      return 0;
+  }
+};
+
+// Function to calculate a rank score for a player
+const calculateRankScore = (player: any): number => {
+  let score = 0;
+
+  // Prioritize MVPs, Goals, and Assists as requested
+
+  // MVPs (highest priority)
+  if (player.MVPs !== undefined) {
+    score += player.MVPs * 100; // High weight for MVPs
+  }
+
+  // Goals
+  if (player.Goals !== undefined) {
+    score += player.Goals * 50; // Moderate weight for Goals
+  }
+
+  // Assists
+  if (player.assist !== undefined) {
+    score += player.assist * 30; // Lower weight for Assists
+  }
+
+  // General stats, less prioritized but still contribute
+  if (player.matches_played !== undefined) {
+    score += player.matches_played * 1;
+  }
+
+  // Specific sports stats can also contribute, but with lower weight
+  switch (player.athletic?.toLowerCase()) {
+    case 'football':
+      if (player.position?.toLowerCase().includes('goalkeeper')) {
+        if (player.Saves !== undefined) score += player.Saves * 5;
+        if (player.clean_sheets !== undefined) score += player.clean_sheets * 20;
+      }
+      break;
+    case 'cricket':
+      if (player.runs !== undefined) score += player.runs * 0.1;
+      if (player.wickets !== undefined) score += player.wickets * 10;
+      if (player.centuries !== undefined) score += player.centuries * 40;
+      break;
+    case 'basketball':
+      if (player.points !== undefined) score += player.points * 0.5;
+      if (player.rebounds !== undefined) score += player.rebounds * 2;
+      if (player.blocks !== undefined) score += player.blocks * 3;
+      if (player.steals !== undefined) score += player.steals * 4;
+      break;
+    case 'hockey':
+        // Hockey also has Goals and Assists, already covered above with higher weights
+        if (player.Saves !== undefined) score += player.Saves * 5; // For goalkeepers
+        if (player.clean_sheets !== undefined) score += player.clean_sheets * 20; // For goalkeepers
+      break;
+  }
+
+  // Ensure a minimum score for players to avoid negative or zero scores if no stats exist
+  return Math.max(1, score);
+};
+
+// Main sort function that handles all sports
+const sortPlayers = (players: any[], sport: string) => {
+  let filteredPlayers = players;
+
+  // First, filter by selected sport if not 'All'
+  if (sport !== "All") {
+    filteredPlayers = players.filter(player => player.athletic?.toLowerCase() === sport.toLowerCase());
+  }
+
+  // Then, sort the filtered (or all) players by rankScore in descending order
+  const sortedByRank = [...filteredPlayers].sort((a, b) => {
+    const rankA = a.rankScore || 0;
+    const rankB = b.rankScore || 0;
+    return rankB - rankA;
+  });
+
+  return sortedByRank;
+};
 
 export default function TeamsPage() {
-  const myTeams = [
-    {
-      name: "Chicago Bulls",
-      sport: "Basketball",
-      logo: "🐂",
-      role: "Player",
-      joinDate: "11/15/2023",
-      status: "Active"
-    },
-    {
-      name: "Dallas Cowboys",
-      sport: "American Football",
-      logo: "⭐",
-      role: "Player",
-      joinDate: "1/10/2024",
-      status: "Active"
-    }
-  ];
+  const { userProfile } = useAuth();
+  const router = useRouter();
+  const [teams, setTeams] = useState<any[]>([]);
+  const [availablePlayers, setAvailablePlayers] = useState<any[]>([]);
+  const [myTeams, setMyTeams] = useState<any[]>([]);
+  const [loadingTeams, setLoadingTeams] = useState(true);
+  const [loadingPlayers, setLoadingPlayers] = useState(true);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filters, setFilters] = useState({
+    status: 'all',
+    experience: 'all',
+    achievements: false
+  });
+  const [selectedSport, setSelectedSport] = useState("All");
 
-  const availableTeams = [
-    {
-      name: "New York Knicks",
-      sport: "NBA",
-      logo: "🏀",
-      position: "Point Guard"
-    },
-    {
-      name: "Denver Broncos",
-      sport: "NFL",
-      logo: "🐎",
-      position: "Quarterback"
-    },
-    {
-      name: "Manchester City",
-      sport: "Premier League",
-      logo: "🔵",
-      position: "Forward"
-    }
-  ];
-
-  const upcomingTryouts = [
-    {
-      team: "Boston Celtics",
-      date: "Apr 15, 2025",
-      location: "Boston"
-    },
-    {
-      team: "FC Barcelona",
-      date: "May 2, 2025",
-      location: "Barcelona"
-    },
-    {
-      team: "San Francisco 49ers",
-      date: "May 20, 2025",
-      location: "San Francisco"
-    }
-  ];
-
-  const selectionProcess = {
-    team: "Los Angeles Lakers",
-    sport: "Basketball",
-    logo: "💜",
-    stage: "Physical Assessment",
-    progress: "In Progress",
-    nextStep: "Skills Evaluation",
-    nextDate: "3/31/2025",
-    startDate: "3/15/2025",
-    endDate: "4/15/2025"
+  const handleSearch = (query: string) => {
+    setSearchQuery(query);
   };
 
-  return (
-    <div className="max-w-7xl mx-auto px-4 py-6">
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Left Section - My Teams & Selection Process */}
-        <div className="space-y-6">
-          {/* My Teams Header */}
-          <div className="bg-gradient-to-r from-blue-600 to-blue-700 rounded-lg p-6 text-white">
-            <div className="flex items-center gap-3 mb-4">
-              <Trophy className="h-8 w-8 text-yellow-400" />
-              <h1 className="text-2xl font-bold">My Teams</h1>
+  const handleFilterChange = (newFilters: any) => {
+    setFilters({ ...filters, ...newFilters });
+  };
+
+  const handleRecruit = async (playerId: string) => {
+    try {
+      // You can add recruitment logic here, such as:
+      // - Sending a recruitment request
+      // - Updating player status
+      // - Creating a recruitment record
+      console.log("Starting recruitment process for player:", playerId);
+      
+      // For now, we'll just show a message
+      alert("Recruitment request sent successfully!");
+    } catch (error) {
+      console.error("Error recruiting player:", error);
+      alert("Failed to send recruitment request. Please try again.");
+    }
+  };
+
+  useEffect(() => {
+    const fetchTeams = async () => {
+      if (userProfile && userProfile.userType !== 'team') {
+        setLoadingTeams(true);
+        let allTeams: any[] = [];
+        try {
+          const sportsCollection = collection(db, "leagues");
+          const sportsSnapshot = await getDocs(sportsCollection);
+
+          for (const sportDoc of sportsSnapshot.docs) {
+            const leaguesCollection = collection(db, "leagues", sportDoc.id, "leagues");
+            const leaguesSnapshot = await getDocs(leaguesCollection);
+
+            for (const leagueDoc of leaguesSnapshot.docs) {
+              const teamsCollection = collection(db, "leagues", sportDoc.id, "leagues", leagueDoc.id, "teams");
+              const teamsSnapshot = await getDocs(teamsCollection);
+
+              teamsSnapshot.docs.forEach(teamDoc => {
+                const teamData = {
+                  id: teamDoc.id,
+                  ...teamDoc.data(),
+                  leagueId: leagueDoc.id,
+                  sportId: sportDoc.id,
+                  sport: sportDoc.id,
+                };
+                
+                if (userProfile.teams?.includes(teamDoc.id)) {
+                  setMyTeams(prev => [...prev, teamData]);
+                } else {
+                  allTeams.push(teamData);
+                }
+              });
+            }
+          }
+          setTeams(allTeams);
+        } catch (error) {
+          console.error("Error fetching teams:", error);
+          setTeams([]);
+        } finally {
+          setLoadingTeams(false);
+        }
+      }
+    };
+
+    const fetchPlayers = async () => {
+      if (userProfile?.userType === 'team') {
+        setLoadingPlayers(true);
+        try {
+          // Query all users from the collection
+          const usersRef = collection(db, "users");
+          const usersQuery = query(usersRef);
+          const usersSnapshot = await getDocs(usersQuery);
+          
+          console.log('Raw users snapshot docs:', usersSnapshot.docs.map(doc => doc.data()));
+
+          const allUsers = usersSnapshot.docs.map(doc => {
+            const data = doc.data();
+            // Trim athletic and position here at the point of data extraction
+            const playerSport = (data.athletic || data.sports?.[0] || '').toLowerCase().trim();
+            const playerPosition = (data.position || '').toLowerCase().trim();
+
+            // Debugging for Rahul V K
+            if (data.displayName === 'Rahul V K') {
+              console.log('Debugging Rahul V K raw data after trimming:', {
+                ...data,
+                athletic: playerSport,
+                position: playerPosition
+              });
+            }
+
+            return {
+              id: doc.id,
+              name: data.displayName || data.firstName + ' ' + data.lastName,
+              position: playerPosition, // Use the trimmed position
+              athletic: playerSport, // Use the trimmed athletic
+              sport: playerSport, // Also set sport for consistency, though not strictly used in filtering/card
+              status: data.status || 'available',
+              experience: data.experience || '',
+              achievements: data.achievements || [],
+              Goals: Number(data.Goals) || 0,
+              assist: Number(data.assist) || 0,
+              MVPs: Number(data.MVPs) || 0,
+              Saves: Number(data.Saves) || 0,
+              matches_played: Number(data.matches_played) || 0,
+              clean_sheets: Number(data.clean_sheets) || 0,
+              runs: Number(data.runs) || 0,
+              wickets: Number(data.wickets) || 0,
+              centuries: Number(data.centuries) || 0,
+              points: Number(data.points) || 0,
+              rebounds: Number(data.rebounds) || 0,
+              blocks: Number(data.blocks) || 0,
+              steals: Number(data.steals) || 0,
+              // Calculate rank score for any user with athletic information using the trimmed data
+              rankScore: playerSport ? calculateRankScore({
+                ...data, // Pass original data for other fields
+                athletic: playerSport, // Override with trimmed athletic
+                position: playerPosition // Override with trimmed position
+              }) : undefined,
+            };
+          });
+          
+          // Filter to include only documents that are likely player profiles
+          const playerProfiles = allUsers.filter(user => user.athletic);
+
+          setAvailablePlayers(playerProfiles);
+        } catch (error) {
+          console.error("Error fetching players:", error);
+          setAvailablePlayers([]);
+        } finally {
+          setLoadingPlayers(false);
+        }
+      }
+    };
+
+    if (userProfile !== undefined) {
+      if (userProfile?.userType === 'team') {
+        fetchPlayers();
+      } else {
+        fetchTeams();
+      }
+    }
+  }, [userProfile]);
+
+  if (userProfile === undefined) {
+    return <div>Loading user data...</div>;
+  }
+
+  if (userProfile?.userType === 'team') {
+    return (
+      <div className="container mx-auto p-4 space-y-6">
+        {/* Recruitment Dashboard Header */}
+        <div className="bg-gradient-to-r from-blue-600 to-blue-700 rounded-lg p-6 text-white">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h1 className="text-2xl font-bold mb-2">Recruitment Hub</h1>
+              <p className="text-blue-100">Find and recruit talented players for your team</p>
             </div>
-            <p className="text-blue-100">
-              Teams you've joined and are actively participating in
-            </p>
-          </div>
-
-          {/* My Teams List */}
-          <div className="space-y-4">
-            {myTeams.map((team, index) => (
-              <Card key={index} className="border-blue-200">
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-4">
-                      <div className="text-4xl">{team.logo}</div>
-                      <div>
-                        <h3 className="text-xl font-bold text-gray-900">{team.name}</h3>
-                        <div className="flex items-center gap-2 mt-1">
-                          <span className="text-sm text-gray-600">{team.sport}</span>
-                          <span className="text-gray-400">•</span>
-                          <span className="text-sm text-gray-600">{team.role}</span>
-                        </div>
-                      </div>
-                    </div>
-                    <Button className="bg-blue-600 hover:bg-blue-700">
-                      View Details →
-                    </Button>
-                  </div>
-                  <div className="mt-4 flex items-center gap-4 text-sm text-gray-600">
-                    <span>Joined on {team.joinDate}</span>
-                    <Badge className="bg-green-100 text-green-700">
-                      {team.status}
-                    </Badge>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-
-          {/* Selection Processes */}
-          <Card className="bg-blue-600 text-white">
-            <CardHeader>
-              <div className="flex items-center gap-3">
-                <Target className="h-6 w-6 text-yellow-400" />
-                <CardTitle className="text-white">Selection Processes</CardTitle>
-              </div>
-              <p className="text-blue-100">Track your applications and selection progress</p>
-            </CardHeader>
-          </Card>
-
-          <div className="flex justify-between">
-            <Button variant="outline" className="text-blue-600 border-blue-200">
-              Active
-            </Button>
-            <Button variant="ghost" className="text-gray-600">
-              History
+            <Button 
+              variant="secondary" 
+              className="bg-white text-blue-600 hover:bg-blue-50"
+              onClick={() => router.push('/teams/recruitment/stats')}
+            >
+              View Recruitment Stats
             </Button>
           </div>
 
-          {/* Active Selection Process */}
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center space-x-4 mb-4">
-                <div className="text-4xl">{selectionProcess.logo}</div>
-                <div>
-                  <h3 className="text-lg font-bold text-gray-900">{selectionProcess.team}</h3>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-gray-600">{selectionProcess.sport}</span>
-                    <span className="text-gray-400">•</span>
-                    <span className="text-sm text-gray-600">NBA</span>
-                  </div>
-                </div>
-                <div className="ml-auto">
-                  <Badge className="bg-blue-100 text-blue-700">
-                    {selectionProcess.progress}
-                  </Badge>
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">Current Stage:</span>
-                  <span className="font-medium text-blue-600">{selectionProcess.stage}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">Period:</span>
-                  <span>{selectionProcess.startDate} - {selectionProcess.endDate}</span>
-                </div>
-              </div>
-
-              <div className="mt-4 p-3 bg-blue-50 rounded-lg">
-                <div className="flex items-center gap-2 text-sm">
-                  <Clock className="h-4 w-4 text-blue-600" />
-                  <span className="font-medium">Next: {selectionProcess.nextStep}</span>
-                </div>
-                <div className="text-sm text-gray-600 mt-1">
-                  Scheduled for {selectionProcess.nextDate}
-                </div>
-              </div>
-
-              <Button variant="outline" className="w-full mt-4">
-                View Details →
-              </Button>
-            </CardContent>
-          </Card>
+          {/* Quick Stats */}
+          <div className="grid grid-cols-3 gap-4 mt-6">
+            <div className="bg-blue-500/20 rounded-lg p-4">
+              <div className="text-2xl font-bold">{availablePlayers.length}</div>
+              <div className="text-sm text-blue-100">Available Players</div>
+            </div>
+            <div className="bg-blue-500/20 rounded-lg p-4">
+              <div className="text-2xl font-bold">0</div>
+              <div className="text-sm text-blue-100">Active Recruitments</div>
+            </div>
+            <div className="bg-blue-500/20 rounded-lg p-4">
+              <div className="text-2xl font-bold">0</div>
+              <div className="text-sm text-blue-100">Recent Joins</div>
+            </div>
+          </div>
         </div>
 
-        {/* Right Section - Available Teams & Tryouts */}
-        <div className="space-y-6">
-          {/* Available Teams Header */}
-          <div className="bg-gradient-to-r from-blue-600 to-blue-700 rounded-lg p-6 text-white">
-            <div className="flex items-center gap-3 mb-4">
-              <Users className="h-8 w-8 text-yellow-400" />
-              <h1 className="text-2xl font-bold">Available Teams</h1>
-            </div>
-            <p className="text-blue-100">
-              Teams currently accepting applications
-            </p>
-          </div>
+        {/* Player Search and Filters */}
+        <Card>
+          <CardContent className="p-6">
+            <PlayerFilters 
+              onSearch={handleSearch} 
+              onFilterChange={handleFilterChange}
+              onSportChange={(sport) => setSelectedSport(sport)}
+              selectedSport={selectedSport}
+            />
+          </CardContent>
+        </Card>
 
-          {/* Available Teams List */}
-          <div className="space-y-4">
-            {availableTeams.map((team, index) => (
-              <Card key={index}>
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
-                      <div className="text-2xl">{team.logo}</div>
-                      <div>
-                        <h3 className="font-bold text-gray-900">{team.name}</h3>
-                        <div className="flex items-center gap-2 text-sm">
-                          <span className="text-gray-600">{team.sport}</span>
-                          <span className="text-gray-400">•</span>
-                          <span className="text-gray-600">{team.position}</span>
-                        </div>
+        {/* Players Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {loadingPlayers ? (
+            <div className="col-span-full text-center py-12">Loading available players...</div>
+          ) : availablePlayers.length > 0 ? (
+            sortPlayers(
+              availablePlayers.filter(player => {
+                // First add debug logging for rank scores
+                console.log(`Player ${player.name}: athletic=${player.athletic}, position=${player.position}, rankScore=${player.rankScore}`);
+            
+                // Convert search query and player fields to lowercase for case-insensitive comparison
+                const query = searchQuery.toLowerCase();
+                const playerName = (player.name || '').toLowerCase();
+                const playerPosition = (player.position || '').toLowerCase();
+                const playerAthletic = (player.athletic || '').toLowerCase();
+                const selectedSportLower = selectedSport.toLowerCase();
+
+                console.log(`Filtering player ${player.name}: athletic=${playerAthletic}, selected=${selectedSportLower}, matchesSport=${selectedSport === "All" || playerAthletic === selectedSportLower}`);
+
+                const matchesSearch = query === '' || 
+                  playerName.includes(query) ||
+                  playerPosition.includes(query) ||
+                  playerAthletic.includes(query);
+
+                const matchesStatus = filters.status === 'all' || player.status === filters.status;
+                const matchesExperience = filters.experience === 'all' || true;
+                const matchesAchievements = !filters.achievements || (player.achievements && player.achievements.length > 0);
+                const matchesSport = selectedSport === "All" || playerAthletic === selectedSportLower;
+
+                return matchesSearch && matchesStatus && matchesExperience && matchesAchievements && matchesSport;
+              }), 
+              selectedSport === "All" ? 'football' : selectedSport.toLowerCase() // Default to football sorting if "All" is selected
+            ).map((player) => (
+                <PlayerCard
+                  key={player.id}
+                  player={player}
+                  onRecruit={handleRecruit}
+                />
+              ))
+          ) : (
+            <div className="col-span-full text-center py-12">
+              <p className="text-gray-500">No players found matching your criteria</p>
+              <Button variant="outline" className="mt-4" onClick={() => {
+                setSearchQuery("");
+                setFilters({
+                  status: 'all',
+                  experience: 'all',
+                  achievements: false
+                });
+              }}>
+                Clear Filters
+              </Button>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="container mx-auto p-4 space-y-6">
+      {/* My Teams Section */}
+      <div className="rounded-lg overflow-hidden bg-white">
+        <div className="bg-gradient-to-r from-blue-600 to-blue-700 p-4">
+          <div className="flex items-center gap-2">
+            <Trophy className="w-5 h-5 text-white" />
+            <h2 className="text-xl font-semibold text-white">My Teams</h2>
+          </div>
+          <p className="text-blue-100 text-sm mt-1">Teams you've joined and are actively participating in</p>
+        </div>
+        
+        <div className="p-4">
+          {myTeams.length > 0 ? (
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {myTeams.map((team) => (
+                <Card key={team.id} className="overflow-hidden hover:shadow-lg transition-all">
+                  <CardContent className="p-0">
+                    <div className="p-4 flex items-center gap-4">
+                      <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center">
+                        {team.logoUrl ? (
+                          <Image 
+                            src={team.logoUrl} 
+                            alt={team.name} 
+                            width={48} 
+                            height={48}
+                            className="rounded-lg"
+                          />
+                        ) : (
+                          <Trophy className="w-6 h-6 text-gray-400" />
+                        )}
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="font-semibold text-gray-900">{team.name}</h3>
+                        <p className="text-sm text-gray-500">{team.sport} • {team.division || 'General'}</p>
                       </div>
                     </div>
-                    <Button className="bg-blue-600 hover:bg-blue-700">
-                      Apply
+                    <div className="border-t p-4">
+                      <p className="text-sm text-gray-600">
+                        Joined on {team.joinedDate || 'Recently'}
+                      </p>
+                      <Button
+                        variant="outline"
+                        className="w-full mt-2"
+                        onClick={() => router.push(`/teams/${team.id}`)}
+                      >
+                        View Details <ChevronRight className="w-4 h-4 ml-2" />
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8 text-gray-500">
+              <p>You haven't joined any teams yet.</p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Available Teams Section */}
+      <div className="rounded-lg overflow-hidden bg-white">
+        <div className="bg-gradient-to-r from-blue-600 to-blue-700 p-4">
+          <div className="flex items-center gap-2">
+            <Users className="w-5 h-5 text-white" />
+            <h2 className="text-xl font-semibold text-white">Available Teams</h2>
+          </div>
+          <p className="text-blue-100 text-sm mt-1">Teams currently accepting applications</p>
+          <div className="flex gap-2 mt-4 overflow-x-auto pb-2">
+            <Button
+              variant={selectedSport === "All" ? "secondary" : "outline"}
+              className={`rounded-full px-4 py-1 ${selectedSport === "All" ? "bg-white text-blue-600" : "bg-blue-700 text-white border-white/20"}`}
+              onClick={() => setSelectedSport("All")}
+            >
+              All Sports
+            </Button>
+            {Array.from(new Set(teams.map(team => team.sport))).map((sport) => (
+              <Button
+                key={sport}
+                variant={selectedSport === sport ? "secondary" : "outline"}
+                className={`rounded-full px-4 py-1 whitespace-nowrap ${selectedSport === sport ? "bg-white text-blue-600" : "bg-blue-700 text-white border-white/20"}`}
+                onClick={() => setSelectedSport(sport)}
+              >
+                {sport}
+              </Button>
+            ))}
+          </div>
+        </div>
+        
+        <div className="p-4">
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {teams
+              .filter(team => selectedSport === "All" || team.sport === selectedSport)
+              .map((team) => (
+              <Card key={team.id} className="overflow-hidden hover:shadow-lg transition-all">
+                <CardContent className="p-0">
+                  <div className="p-4 flex items-center gap-4">
+                    <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center">
+                      {team.logoUrl ? (
+                        <Image 
+                          src={team.logoUrl} 
+                          alt={team.name} 
+                          width={48} 
+                          height={48}
+                          className="rounded-lg"
+                        />
+                      ) : (
+                        <Trophy className="w-6 h-6 text-gray-400" />
+                      )}
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="font-semibold text-gray-900">{team.name}</h3>
+                      <p className="text-sm text-gray-500">{team.sport} • {team.division || 'General'}</p>
+                    </div>
+                  </div>
+                  <div className="border-t p-4">
+                    <Button
+                      className="w-full"
+                      onClick={() => router.push(`/teams/${team.id}`)}
+                    >
+                      Apply <ChevronRight className="w-4 h-4 ml-2" />
                     </Button>
                   </div>
                 </CardContent>
               </Card>
             ))}
           </div>
-
-          {/* Upcoming Tryouts */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Upcoming Tryouts</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {upcomingTryouts.map((tryout, index) => (
-                <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
-                  <div>
-                    <h4 className="font-medium text-gray-900">{tryout.team}</h4>
-                    <div className="flex items-center gap-2 text-sm text-gray-600">
-                      <Calendar className="h-3 w-3" />
-                      <span>{tryout.date}</span>
-                      <span>•</span>
-                      <span>{tryout.location}</span>
-                    </div>
-                  </div>
-                  <Button variant="ghost" size="sm" className="flex items-center gap-1">
-                    <Bell className="h-3 w-3" />
-                  </Button>
-                </div>
-              ))}
-              <Button variant="ghost" className="w-full">
-                View all upcoming tryouts →
-              </Button>
-            </CardContent>
-          </Card>
-
-          {/* Recommendations */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Recommendations</CardTitle>
-              <p className="text-sm text-gray-600">Based on your profile and performance</p>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                <div className="flex items-center justify-between p-3 border rounded-lg">
-                  <div className="flex items-center space-x-3">
-                    <div className="text-2xl">🏀</div>
-                    <div>
-                      <h4 className="font-medium text-gray-900">Washington Wizards</h4>
-                      <div className="text-sm text-gray-600">NBA Team</div>
-                    </div>
-                  </div>
-                  <Button variant="outline" size="sm">
-                    View
-                  </Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
         </div>
       </div>
     </div>
