@@ -20,12 +20,6 @@ export default function PeopleYouMayKnow({ className = "" }: PeopleYouMayKnowPro
   const [requesting, setRequesting] = useState<string | null>(null);
   const [requestedUsers, setRequestedUsers] = useState<Set<string>>(new Set());
 
-  useEffect(() => {
-    if (user) {
-      loadSuggestedUsers();
-    }
-  }, [user]);
-
   const loadSuggestedUsers = async () => {
     if (!user) return;
     
@@ -40,6 +34,12 @@ export default function PeopleYouMayKnow({ className = "" }: PeopleYouMayKnowPro
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (user) {
+      loadSuggestedUsers();
+    }
+  }, [user, loadSuggestedUsers]);
 
   const handleConnect = async (targetUserId: string) => {
     if (!user) return;

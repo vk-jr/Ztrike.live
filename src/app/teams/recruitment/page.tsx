@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { ApplicationDialog } from "./ApplicationDialog";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
+import { Application, RecruitmentItem } from "@/types/application";
 
 export default function RecruiterHubPage() {
   return (
@@ -18,10 +19,10 @@ export default function RecruiterHubPage() {
 }
 
 function RecruiterHub() {
-  const [selectedApplication, setSelectedApplication] = useState<any>(null);
+  const [selectedApplication, setSelectedApplication] = useState<Application | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
 
-  const recruitmentItems = [
+  const recruitmentItems: RecruitmentItem[] = [
     {
       title: "Open Positions",
       count: 12,

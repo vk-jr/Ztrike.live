@@ -129,7 +129,7 @@ export default function PostDisplay({ userId, showNetworkPosts = false, showAllP
     };
 
     fetchPosts();
-  }, [userId, showNetworkPosts]);
+  }, [userId, showNetworkPosts, showAllPosts]);
 
   if (loading) {
     return (

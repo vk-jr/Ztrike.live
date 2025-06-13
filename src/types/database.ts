@@ -1,3 +1,5 @@
+import { Timestamp } from 'firebase/firestore';
+
 export interface UserProfile {  id: string;
   email: string;
   firstName: string;
@@ -83,8 +85,13 @@ export interface TeamPlayer {
 export interface Team {
   id: string;
   name: string;
+  description?: string;
   sport: string;
-  logo?: string;
+  logoURL?: string;
+  members: string[];
+  admins: string[];
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 export type SportType = 'football' | 'cricket' | 'basketball' | 'hockey';
@@ -92,24 +99,27 @@ export type SportType = 'football' | 'cricket' | 'basketball' | 'hockey';
 export interface League {
   id: string;
   name: string;
-  sport: SportType;
+  description?: string;
+  sport: string;
+  logoURL?: string;
   teams: string[];
+  admins: string[];
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 export interface Match {
   id: string;
   teamIds: string[];
-  status: 'scheduled' | 'live' | 'completed';
-  score: {
-    home: number;
-    away: number;
+  teams: Team[];
+  score?: {
+    team1: number;
+    team2: number;
   };
-  startTime: Date | { toDate(): Date };
-  location?: string;
-  leagueId?: string;
-  creatorId: string;
-  createdAt: Date | { toDate(): Date };
-  updatedAt: Date | { toDate(): Date };
+  status: 'scheduled' | 'live' | 'completed' | 'cancelled';
+  scheduledAt: Date;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 export interface Message {
@@ -118,36 +128,31 @@ export interface Message {
   receiverId: string;
   content: string;
   read: boolean;
-  createdAt: Date | { toDate(): Date };
-  updatedAt: Date | { toDate(): Date };
-  senderName?: string;
-  senderPhotoURL?: string;
-  receiverName?: string;
-  receiverPhotoURL?: string;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 export interface Comment {
   id: string;
-  postId: string;
   authorId: string;
   content: string;
-  createdAt: Date | { toDate(): Date };
-  authorName?: string; // Add authorName
-  authorPhotoURL?: string; // Add authorPhotoURL
+  createdAt: Date;
+  authorName?: string;
+  authorPhotoURL?: string;
 }
 
 export interface Post {
   id: string;
   content: string;
+  imageUrl?: string;
   authorId: string;
-  createdAt: Date | { toDate(): Date };
-  updatedAt: Date | { toDate(): Date };
-  imageUrl?: string; // Add imageUrl
-  likes: number; // Add likes
-  likedBy: string[]; // Add likedBy
-  comments: Comment[]; // Add comments
-  authorName?: string; // Add authorName
-  authorPhotoURL?: string; // Add authorPhotoURL
+  authorName?: string;
+  authorPhotoURL?: string;
+  likes: number;
+  likedBy: string[];
+  comments: Comment[];
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 export interface Application {
@@ -160,4 +165,15 @@ export interface Application {
   targetLeagueName?: string; // Optional: If applying to a specific league by name
   status: 'pending' | 'approved' | 'rejected';
   createdAt: Date | { toDate(): Date };
+}
+
+export interface Notification {
+  id: string;
+  type: 'connection_request' | 'connection_accepted' | 'match_invite' | 'team_invite';
+  userId: string;
+  fromId: string;
+  title: string;
+  description: string;
+  read: boolean;
+  createdAt: Date;
 }

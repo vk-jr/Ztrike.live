@@ -25,7 +25,7 @@ import {
 import { getAuth } from 'firebase/auth';
 import { db } from './firebase';
 import { createNotification } from './notificationActions';
-import type { UserProfile, Team, League, Message, Post, Match, Comment } from '@/types/database';
+import type { UserProfile, Team, League, Message, Post, Match, Comment, Notification } from '@/types/database';
 
 // Error handling wrapper
 const handleFirestoreError = (error: FirestoreError) => {
@@ -796,7 +796,7 @@ export const getAllPosts = async (): Promise<Post[]> => {
     // Get all unique user IDs from posts and comments
     const postAuthorIds = querySnapshot.docs.map(doc => doc.data().authorId);
     const commentAuthorIds = querySnapshot.docs.flatMap(doc => 
-      (doc.data().comments || []).map((comment: any) => comment.authorId)
+      (doc.data().comments || []).map((comment: Comment) => comment.authorId)
     );
     const allUserIds = [...new Set([...postAuthorIds, ...commentAuthorIds])];
     
@@ -813,7 +813,13 @@ export const getAllPosts = async (): Promise<Post[]> => {
       const userSnapshots = await Promise.all(userBatches);
       userSnapshots.forEach(snapshot => {
         snapshot.docs.forEach(doc => {
-          userDataMap.set(doc.id, doc.data() as UserProfile);
+          const data = doc.data();
+          userDataMap.set(doc.id, {
+            ...data,
+            id: doc.id,
+            createdAt: data.createdAt instanceof Timestamp ? data.createdAt.toDate() : data.createdAt,
+            updatedAt: data.updatedAt instanceof Timestamp ? data.updatedAt.toDate() : data.updatedAt
+          } as UserProfile);
         });
       });
     }
@@ -829,14 +835,14 @@ export const getAllPosts = async (): Promise<Post[]> => {
         likes: data.likes || 0,
         likedBy: data.likedBy || [],
         // Process comments: convert timestamp and add author info
-        comments: (data.comments || []).map((comment: any) => ({
+        comments: (data.comments || []).map((comment: Comment) => ({
           ...comment,
-          createdAt: comment.createdAt?.toDate ? comment.createdAt.toDate() : (comment.createdAt || new Date()),
+          createdAt: comment.createdAt instanceof Timestamp ? comment.createdAt.toDate() : comment.createdAt,
           authorName: userDataMap.get(comment.authorId)?.displayName || 'Unknown User',
           authorPhotoURL: userDataMap.get(comment.authorId)?.photoURL,
         })),
-        createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : (data.createdAt || new Date()),
-        updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate() : (data.updatedAt || new Date()),
+        createdAt: data.createdAt instanceof Timestamp ? data.createdAt.toDate() : data.createdAt,
+        updatedAt: data.updatedAt instanceof Timestamp ? data.updatedAt.toDate() : data.updatedAt,
         authorName: userDataMap.get(data.authorId)?.displayName || 'Unknown User',
         authorPhotoURL: userDataMap.get(data.authorId)?.photoURL
       } as Post;
