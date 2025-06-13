@@ -10,11 +10,7 @@ import { useState, useEffect } from "react";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { getUserConversations, getConversationMessages, createMessage, markMessageAsRead } from "@/lib/db";
 import type { Message } from "@/types/database";
-<<<<<<< HEAD
 import { formatDistanceToNow, format } from 'date-fns';
-=======
-import { formatDistanceToNow } from 'date-fns';
->>>>>>> 6e5b227c19f69feb43ebe009347863fd398c2203
 
 type Conversation = {
   partnerId: string;
@@ -57,16 +53,7 @@ export default function MessagesPage() {
       if (!user || !selectedPartnerId) return;
       
       try {
-        const { messages: chatMessages } = await getConversationMessages(user.uid, selectedPartnerId);
-        // Sort messages by createdAt timestamp in ascending order
-<<<<<<< HEAD
-        const sortedMessages = [...chatMessages].sort((a, b) => {
-          const dateA = a.createdAt instanceof Date ? a.createdAt : (a.createdAt as any)?.toDate();
-          const dateB = b.createdAt instanceof Date ? b.createdAt : (b.createdAt as any)?.toDate();
-          return dateA.getTime() - dateB.getTime();
-        });
-        setMessages(sortedMessages);
-=======
+        const { messages: chatMessages } = await getConversationMessages(user.uid, selectedPartnerId);        // Sort messages by createdAt timestamp in ascending order
         setMessages(chatMessages.sort((a, b) => {
           const aDate = typeof a.createdAt === 'object' && a.createdAt !== null && 'toDate' in a.createdAt
             ? a.createdAt.toDate()
@@ -76,7 +63,6 @@ export default function MessagesPage() {
             : new Date(b.createdAt as any);
           return aDate.getTime() - bDate.getTime();
         }));
->>>>>>> 6e5b227c19f69feb43ebe009347863fd398c2203
         
         // Mark unread messages as read
         for (const message of chatMessages) {
@@ -99,7 +85,16 @@ export default function MessagesPage() {
       const selectedPartner = conversations.find(c => c.partnerId === selectedPartnerId)?.partnerProfile;
       
       // Create base message data
-      const messageData: Partial<Message> = {
+      const messageData: {
+        senderId: string;
+        receiverId: string;
+        content: string;
+        read: boolean;
+        senderName?: string;
+        senderPhotoURL?: string;
+        receiverName?: string;
+        receiverPhotoURL?: string;
+      } = {
         senderId: user.uid,
         receiverId: selectedPartnerId,
         content: newMessage.trim(),
@@ -107,13 +102,8 @@ export default function MessagesPage() {
       };
 
       // Add optional fields only if they exist
-<<<<<<< HEAD
-      if (user.displayName ?? user.email ?? undefined) {
-        messageData.senderName = user.displayName ?? user.email ?? undefined;
-=======
       if (user.displayName || user.email) {
-        messageData.senderName = user.displayName || user.email;
->>>>>>> 6e5b227c19f69feb43ebe009347863fd398c2203
+        messageData.senderName = user.displayName || user.email || undefined;
       }
       if (user.photoURL) {
         messageData.senderPhotoURL = user.photoURL;
@@ -129,39 +119,28 @@ export default function MessagesPage() {
       setNewMessage("");
       
       // Refresh messages and maintain proper sorting
-      const { messages: updatedMessages } = await getConversationMessages(user.uid, selectedPartnerId);
-<<<<<<< HEAD
-      const sortedUpdatedMessages = [...updatedMessages].sort((a, b) => {
-        const dateA = a.createdAt instanceof Date ? a.createdAt : (a.createdAt as any)?.toDate();
-        const dateB = b.createdAt instanceof Date ? b.createdAt : (b.createdAt as any)?.toDate();
-        return dateA.getTime() - dateB.getTime();
-      });
-      setMessages(sortedUpdatedMessages);
-      
-      // Update conversations list
-      const updatedConversations = await getUserConversations(user.uid);
-      const sortedUpdatedConversations = [...updatedConversations].sort((a, b) => {
-        const dateA = a.lastMessage?.createdAt instanceof Date ? a.lastMessage.createdAt : (a.lastMessage?.createdAt as any)?.toDate();
-        const dateB = b.lastMessage?.createdAt instanceof Date ? b.lastMessage.createdAt : (b.lastMessage?.createdAt as any)?.toDate();
-        // Sort in descending order (latest first)
-        return (dateB?.getTime() || 0) - (dateA?.getTime() || 0);
-      });
-      setConversations(sortedUpdatedConversations);
-=======
-      setMessages(updatedMessages.sort((a, b) => {
-        const aDate = typeof a.createdAt === 'object' && a.createdAt !== null && 'toDate' in a.createdAt
+      const { messages: newMessages } = await getConversationMessages(user.uid, selectedPartnerId);
+      setMessages(newMessages.sort((a: { createdAt: any }, b: { createdAt: any }) => {
+        const aDate = typeof a.createdAt === 'object' && 'toDate' in a.createdAt
           ? a.createdAt.toDate()
-          : new Date(a.createdAt as any);
-        const bDate = typeof b.createdAt === 'object' && b.createdAt !== null && 'toDate' in b.createdAt
+          : new Date(a.createdAt);
+        const bDate = typeof b.createdAt === 'object' && 'toDate' in b.createdAt
           ? b.createdAt.toDate()
-          : new Date(b.createdAt as any);
-        return aDate.getTime() - bDate.getTime();
+          : new Date(b.createdAt);
+        return bDate.getTime() - aDate.getTime();
       }));
-      
+
       // Update conversations list
       const updatedConversations = await getUserConversations(user.uid);
-      setConversations(updatedConversations);
->>>>>>> 6e5b227c19f69feb43ebe009347863fd398c2203
+      setConversations(updatedConversations.sort((a, b) => {
+        const aDate = a.lastMessage?.createdAt && typeof a.lastMessage.createdAt === 'object' && 'toDate' in a.lastMessage.createdAt
+          ? a.lastMessage.createdAt.toDate()
+          : new Date(a.lastMessage?.createdAt as any);
+        const bDate = b.lastMessage?.createdAt && typeof b.lastMessage.createdAt === 'object' && 'toDate' in b.lastMessage.createdAt
+          ? b.lastMessage.createdAt.toDate()
+          : new Date(b.lastMessage?.createdAt as any);
+        return bDate.getTime() - aDate.getTime(); // Sort in descending order
+      }));
     } catch (error) {
       console.error("Error sending message:", error);
     }
@@ -232,17 +211,10 @@ export default function MessagesPage() {
                           <h3 className="font-medium text-gray-900 truncate">
                             {conversation.partnerProfile?.displayName || conversation.partnerProfile?.email}
                           </h3>
-                          <span className="text-xs text-gray-500">
-                            {formatDistanceToNow(
-<<<<<<< HEAD
-                              conversation.lastMessage.createdAt instanceof Date
-                                ? conversation.lastMessage.createdAt
-                                : (conversation.lastMessage.createdAt as any)?.toDate()
-=======
+                          <span className="text-xs text-gray-500">                            {formatDistanceToNow(
                               typeof conversation.lastMessage.createdAt === 'object' && conversation.lastMessage.createdAt !== null && 'toDate' in conversation.lastMessage.createdAt
                                 ? conversation.lastMessage.createdAt.toDate()
                                 : new Date(conversation.lastMessage.createdAt as any)
->>>>>>> 6e5b227c19f69feb43ebe009347863fd398c2203
                             )}
                           </span>
                         </div>
@@ -295,15 +267,7 @@ export default function MessagesPage() {
                           message.senderId === user.uid
                             ? "bg-blue-600 text-white"
                             : "bg-gray-100 text-gray-900"
-                        }`}>
-                          <p className="text-sm">{message.content}</p>
-<<<<<<< HEAD
-                          <div className="text-xs text-gray-500">
-                            {message.createdAt instanceof Date
-                              ? format(message.createdAt, "MMM d, yyyy h:mm a")
-                              : format((message.createdAt as any)?.toDate(), "MMM d, yyyy h:mm a")}
-                          </div>
-=======
+                        }`}>                          <p className="text-sm">{message.content}</p>
                           <p className={`text-xs mt-1 ${
                             message.senderId === user.uid ? "text-blue-100" : "text-gray-500"
                           }`}>
@@ -313,7 +277,6 @@ export default function MessagesPage() {
                                 : new Date(message.createdAt as any)
                             )}
                           </p>
->>>>>>> 6e5b227c19f69feb43ebe009347863fd398c2203
                         </div>
                       </div>
                     ))}

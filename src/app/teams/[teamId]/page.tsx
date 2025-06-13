@@ -88,11 +88,7 @@ export default function TeamProfilePage() {
   const { userProfile } = useAuth();
   const params = useParams();
   const router = useRouter();
-<<<<<<< HEAD
   const teamId = decodeURIComponent(params?.teamId as string);
-=======
-  const teamId = decodeURIComponent(params.teamId as string);
->>>>>>> 6e5b227c19f69feb43ebe009347863fd398c2203
   const [teamProfile, setTeamProfile] = useState<TeamProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

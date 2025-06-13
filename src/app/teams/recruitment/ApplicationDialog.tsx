@@ -21,11 +21,7 @@ interface ApplicationDialogProps {
     position: string;
     team: string;
     status: string;
-<<<<<<< HEAD
     appliedOn: Date | { toDate(): Date };
-=======
-    appliedOn: string;
->>>>>>> 6e5b227c19f69feb43ebe009347863fd398c2203
     experience?: string;
     achievements?: string[];
     contact?: {
@@ -76,19 +72,15 @@ export function ApplicationDialog({
               <span>•</span>
               <span>{application.team}</span>
               <span>•</span>
-<<<<<<< HEAD
               {application.appliedOn && (
                 <p className="text-sm text-gray-500">
                   <span>Applied on {
-                    application.appliedOn instanceof Date
-                      ? application.appliedOn.toLocaleDateString()
-                      : (application.appliedOn as any)?.toDate().toLocaleDateString()
+                    typeof application.appliedOn === 'object' && 'toDate' in application.appliedOn
+                ? application.appliedOn.toDate().toLocaleDateString()
+                : (application.appliedOn as Date).toLocaleDateString()
                   }</span>
                 </p>
               )}
-=======
-              <span>Applied on {new Date(application.appliedOn).toLocaleDateString()}</span>
->>>>>>> 6e5b227c19f69feb43ebe009347863fd398c2203
             </div>
           </div>
 

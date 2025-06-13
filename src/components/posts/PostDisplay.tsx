@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Heart, MessageSquare, Share2, AlertCircle, Pencil, Trash2 } from "lucide-react";
@@ -199,23 +199,6 @@ export default function PostDisplay({ userId, showNetworkPosts = false, showAllP
                 <div>
                   <p className="font-semibold">{post.authorName}</p>
                   <p className="text-sm text-gray-500">
-<<<<<<< HEAD
-                    {post.createdAt instanceof Date
-                      ? post.createdAt.toLocaleString("en-US", {
-                          month: "short",
-                          day: "numeric",
-                          year: "numeric",
-                          hour: "numeric",
-                          minute: "numeric",
-                        })
-                      : (post.createdAt as any)?.toDate().toLocaleString("en-US", {
-                          month: "short",
-                          day: "numeric",
-                          year: "numeric",
-                          hour: "numeric",
-                          minute: "numeric",
-                        })}
-=======
                     {post.createdAt ? 
                       (typeof post.createdAt === 'object' && 'toDate' in post.createdAt
                         ? post.createdAt.toDate().toLocaleString('en-US', {
@@ -225,7 +208,6 @@ export default function PostDisplay({ userId, showNetworkPosts = false, showAllP
                             year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: 'numeric'
                           }))
                     : 'N/A'}
->>>>>>> 6e5b227c19f69feb43ebe009347863fd398c2203
                   </p>
                 </div>
               </Link>

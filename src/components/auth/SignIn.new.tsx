@@ -6,10 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { useRouter } from 'next/navigation';
-<<<<<<< HEAD
-=======
 import { FirebaseError } from 'firebase/app';
->>>>>>> 6e5b227c19f69feb43ebe009347863fd398c2203
 
 export function SignIn() {
   const [email, setEmail] = useState('');
@@ -24,13 +21,7 @@ export function SignIn() {
     setLoading(true);
     setError('');
     try {
-      await signIn(email, password);
-      router.push('/profile');
-<<<<<<< HEAD
-    } catch (error: any) {
-      console.error('Error signing in:', error);
-      setError(error?.message || 'Failed to sign in. Please check your credentials.');
-=======
+      await signIn(email, password);      router.push('/profile');
     } catch (error) {
       console.error('Error signing in:', error);
       if (error instanceof FirebaseError) {
@@ -38,7 +29,6 @@ export function SignIn() {
       } else {
         setError('Failed to sign in. Please check your credentials.');
       }
->>>>>>> 6e5b227c19f69feb43ebe009347863fd398c2203
     } finally {
       setLoading(false);
     }
@@ -48,13 +38,7 @@ export function SignIn() {
     setLoading(true);
     setError('');
     try {
-      await signInWithGoogle();
-      router.push('/profile');
-<<<<<<< HEAD
-    } catch (error: any) {
-      console.error('Error signing in with Google:', error);
-      setError(error?.message || 'Failed to sign in with Google. Please try again.');
-=======
+      await signInWithGoogle();      router.push('/profile');
     } catch (error) {
       console.error('Error signing in with Google:', error);
       if (error instanceof FirebaseError) {
@@ -62,7 +46,6 @@ export function SignIn() {
       } else {
         setError('Failed to sign in with Google. Please try again.');
       }
->>>>>>> 6e5b227c19f69feb43ebe009347863fd398c2203
     } finally {
       setLoading(false);
     }

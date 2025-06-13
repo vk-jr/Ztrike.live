@@ -11,22 +11,15 @@ import { useRouter } from "next/navigation";
 import { getUserNotifications, markNotificationAsRead, markAllNotificationsAsRead } from "@/lib/notificationActions";
 import type { Notification } from "@/types/notification";
 import { formatDistanceToNow } from "date-fns";
-<<<<<<< HEAD
 import Link from "next/link";
-=======
->>>>>>> 6e5b227c19f69feb43ebe009347863fd398c2203
 
 interface EnhancedNotification extends Notification {
   fromUser: {
     id: string;
     displayName: string;
     photoURL?: string;
-  } | null;
-  avatar?: string; // For backwards compatibility
-<<<<<<< HEAD
+  } | null;  avatar?: string; // For backwards compatibility
   link?: string;
-=======
->>>>>>> 6e5b227c19f69feb43ebe009347863fd398c2203
 }
 
 export default function AlertsPage() {
@@ -154,25 +147,11 @@ export default function AlertsPage() {
                     <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full border-2 border-white flex items-center justify-center">
                       {getNotificationIcon(notification)}
                     </div>
-                  </div>
-
-                  <div className="flex-1">
-<<<<<<< HEAD
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                      <CardTitle className="text-sm font-medium">
-                        <Link href={notification.link || "#"} className="hover:underline">
-                      {notification.title}
-                        </Link>
-                      </CardTitle>
-                      <span className="text-xs text-gray-500">
-                        {notification.createdAt instanceof Date
-                          ? formatDistanceToNow(notification.createdAt, { addSuffix: true })
-                          : formatDistanceToNow((notification.createdAt as any)?.toDate(), { addSuffix: true })}
-                      </span>
-                    </CardHeader>
-=======
+                  </div>                  <div className="flex-1">
                     <h3 className="font-medium text-gray-900 mb-1">
-                      {notification.title}
+                      <Link href={notification.link || "#"} className="hover:underline">
+                        {notification.title}
+                      </Link>
                     </h3>
                     <p className="text-sm text-gray-600 mb-2">
                       {notification.description}
@@ -191,7 +170,6 @@ export default function AlertsPage() {
                         <Badge variant="default" className="bg-blue-600">New</Badge>
                       )}
                     </div>
->>>>>>> 6e5b227c19f69feb43ebe009347863fd398c2203
                   </div>
                 </div>
               </CardContent>

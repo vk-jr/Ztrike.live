@@ -159,29 +159,17 @@ export function SignUp() {
     setLoading(true);
     try {
       const userCredential = await signUp(formData.email, formData.password);
-      const { user } = userCredential;
-      // For email/password sign up, if it's a team or league, we need to get the name first
-<<<<<<< HEAD
-      if (formData.userType !== 'player') { // Changed 'athlete' to 'player'
-=======
+      const { user } = userCredential;      // For email/password sign up, if it's a team or league, we need to get the name first
       if (formData.userType !== 'player') {
->>>>>>> 6e5b227c19f69feb43ebe009347863fd398c2203
         if (!formData.name.trim()) {
           setError('Please enter a name before continuing');
           setLoading(false);
           return;
         }
-      }
-      // Directly create profile and redirect
-<<<<<<< HEAD
-      await createProfile(user, formData.userType === 'player' ? `${formData.firstName} ${formData.lastName}` : formData.name); // Changed 'athlete' to 'player'
-
-    } catch (error: any) {
-=======
+      }      // Directly create profile and redirect
       await createProfile(user, formData.userType === 'player' ? `${formData.firstName} ${formData.lastName}` : formData.name);
 
     } catch (error) {
->>>>>>> 6e5b227c19f69feb43ebe009347863fd398c2203
       console.error('Error signing up:', error);
       if (error instanceof FirebaseError) {
         setError(error.message);
@@ -199,25 +187,15 @@ export function SignUp() {
     try {
       const result = await signInWithGoogle();
       const { user } = result;
-      if (user) {
-        // For Google sign in, if it's a team or league, we need to get the name first
-<<<<<<< HEAD
-        if (formData.userType !== 'player') { // Changed 'athlete' to 'player'
-=======
+      if (user) {        // For Google sign in, if it's a team or league, we need to get the name first
         if (formData.userType !== 'player') {
->>>>>>> 6e5b227c19f69feb43ebe009347863fd398c2203
           if (!formData.name.trim()) {
             setError('Please enter a name before continuing');
             setLoading(false);
             return;
           }
-        }
-        // Directly create profile and redirect
-<<<<<<< HEAD
-        await createProfile(user, user.displayName || (formData.userType === 'player' ? `${formData.firstName} ${formData.lastName}` : formData.name)); // Changed 'athlete' to 'player'
-=======
+        }        // Directly create profile and redirect
         await createProfile(user, user.displayName || (formData.userType === 'player' ? `${formData.firstName} ${formData.lastName}` : formData.name));
->>>>>>> 6e5b227c19f69feb43ebe009347863fd398c2203
       }
     } catch (error) {
       console.error('Error signing in with Google:', error);

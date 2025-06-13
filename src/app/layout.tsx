@@ -5,7 +5,23 @@ import { ChatbotWrapper } from "@/components/ChatbotWrapper";
 import { Toaster } from "@/components/ui/toaster";
 import { metadata } from './metadata';
 
-const inter = Inter({ subsets: ["latin"] });
+const inter = Inter({
+  subsets: ["latin"],
+  display: 'swap',
+  fallback: [
+    '-apple-system',
+    'BlinkMacSystemFont',
+    'Segoe UI',
+    'Roboto',
+    'Oxygen',
+    'Ubuntu',
+    'Cantarell',
+    'Fira Sans',
+    'Droid Sans',
+    'Helvetica Neue',
+    'sans-serif'
+  ]
+});
 
 export default function RootLayout({
   children,

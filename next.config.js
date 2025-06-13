@@ -6,9 +6,12 @@ const nextConfig = {
     // You can generate a unique build ID here if needed
     return "build-" + Date.now();
   },
-  devIndicators: false,
+  devIndicators: {
+    buildActivity: false
+  },
   poweredByHeader: false,
   reactStrictMode: true,
+  optimizeFonts: false, // Temporarily disable font optimization
   images: {
     unoptimized: true,
     domains: [
@@ -48,16 +51,14 @@ const nextConfig = {
   },
 
   // Optimize chunk loading and enable experimental features
-<<<<<<< HEAD
   // experimental: {
   //   optimizeCss: true,
   // },
-=======
   experimental: {
     optimizeCss: true,
     optimizePackageImports: ['@radix-ui/react-*', 'lucide-react'],
   },
->>>>>>> 6e5b227c19f69feb43ebe009347863fd398c2203
+
 
   // Configure webpack
   webpack: (config, { dev, isServer }) => {
