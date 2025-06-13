@@ -12,7 +12,7 @@ import {
   UserCredential
 } from 'firebase/auth';
 import { auth } from '../firebase';
-import { createUserProfile } from '../db';
+import { getUserProfile } from '../db';
 import type { UserProfile } from '@/types/database';
 
 interface AuthContextType {
@@ -22,6 +22,7 @@ interface AuthContextType {
   signUp: (email: string, password: string) => Promise<UserCredential>;
   logout: () => Promise<void>;
   signInWithGoogle: () => Promise<UserCredential>;
+  userProfile: UserProfile | null;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -39,6 +40,7 @@ const AuthContext = createContext<AuthContextType>({
   signInWithGoogle: async () => {
     throw new Error('AuthContext not initialized');
   },
+  userProfile: null
 });
 
 export const useAuth = () => {
@@ -52,24 +54,36 @@ export const useAuth = () => {
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
 
   useEffect(() => {
-    // Initialize Firebase Auth listener
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setUser(user);
+      if (user) {
+        try {
+          const profile = await getUserProfile(user.uid);
+          setUserProfile(profile);
+        } catch (error) {
+          console.error('Error fetching user profile:', error);
+        }
+      } else {
+        setUserProfile(null);
+      }
       setLoading(false);
     }, (error) => {
       console.error('Auth state change error:', error);
       setLoading(false);
     });
 
-    // Cleanup subscription
     return () => unsubscribe();
   }, []);
 
   const signIn = async (email: string, password: string) => {
     try {
-      return await signInWithEmailAndPassword(auth, email, password);
+      const result = await signInWithEmailAndPassword(auth, email, password);
+      const profile = await getUserProfile(result.user.uid);
+      setUserProfile(profile);
+      return result;
     } catch (error) {
       console.error('Sign in error:', error);
       throw error;
@@ -78,7 +92,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signUp = async (email: string, password: string) => {
     try {
-      return await createUserWithEmailAndPassword(auth, email, password);
+      const result = await createUserWithEmailAndPassword(auth, email, password);
+      return result;
     } catch (error) {
       console.error('Sign up error:', error);
       throw error;
@@ -88,6 +103,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = async () => {
     try {
       await signOut(auth);
+      setUserProfile(null);
     } catch (error) {
       console.error('Sign out error:', error);
       throw error;
@@ -95,26 +111,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signInWithGoogle = async () => {
-    try {      const provider = new GoogleAuthProvider();
+    try {
+      const provider = new GoogleAuthProvider();
       const result = await signInWithPopup(auth, provider);
-      const { user } = result;
-
-      // Create or update profile for Google sign-in
-      const names = user.displayName?.split(' ') || ['', ''];
-      const profile: Partial<UserProfile> = {
-        id: user.uid,
-        email: user.email || '',
-        firstName: names[0],
-        lastName: names.slice(1).join(' '),
-        displayName: user.displayName || '',
-        photoURL: user.photoURL || '',
-        bio: '',
-        teams: [],
-        leagues: [],
-        connections: [],
-        postViews: 0
-      };
-      await createUserProfile(user.uid, profile);
+      const profile = await getUserProfile(result.user.uid);
+      setUserProfile(profile);
       return result;
     } catch (error) {
       console.error('Google sign in error:', error);
@@ -129,6 +130,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     signUp,
     logout,
     signInWithGoogle,
+    userProfile
   };
 
   // Show nothing until initial auth state is determined

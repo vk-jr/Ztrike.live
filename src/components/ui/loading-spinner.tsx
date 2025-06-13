@@ -1,6 +1,8 @@
 'use client';
 
-export function LoadingSpinner({ size = 'default' }: { size?: 'small' | 'default' | 'large' }) {
+import { cn } from "@/lib/utils";
+
+export function LoadingSpinner({ size = 'default', className }: { size?: 'small' | 'default' | 'large', className?: string }) {
   const sizeClasses = {
     small: 'h-4 w-4 border-2',
     default: 'h-8 w-8 border-3',
@@ -8,7 +10,7 @@ export function LoadingSpinner({ size = 'default' }: { size?: 'small' | 'default
   };
 
   return (
-    <div className="flex justify-center items-center">
+    <div className={cn("flex justify-center items-center", className)}>
       <div
         className={`${sizeClasses[size]} animate-spin rounded-full border-solid border-primary border-t-transparent`}
         role="status"

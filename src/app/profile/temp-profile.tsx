@@ -3,6 +3,7 @@
 import { Edit, Share2, Calendar } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/lib/auth/AuthContext";
@@ -108,12 +109,19 @@ export default function ProfilePage() {
                 <h2 className="text-2xl font-bold mb-2 text-gray-900">
                   {userProfile?.displayName || user.email}
                 </h2>
+                <Badge variant="secondary" className="mb-3">
+                  {userProfile?.accountType === 'team' ? 'Team Account' : 'Athlete Account'}
+                </Badge>
                 <p className="text-gray-600 text-sm mb-4 leading-relaxed">
                   {userProfile?.bio || "No bio added yet"}
                 </p>
                 <div className="inline-flex items-center px-3 py-1 rounded-full text-gray-500 text-sm bg-gray-50">
                   <Calendar className="w-4 h-4 mr-2 text-gray-400" />
-                  Joined {userProfile?.createdAt ? new Date(userProfile.createdAt).toLocaleDateString() : "Recently"}
+                  <p className="text-gray-500">
+                    Joined {userProfile?.createdAt ?
+                      (userProfile.createdAt instanceof Date ? userProfile.createdAt.toLocaleDateString() : (userProfile.createdAt as any)?.toDate().toLocaleDateString()) :
+                      "Recently"}
+                  </p>
                 </div>
 
                 {/* Stats Grid */}

@@ -8,6 +8,7 @@ import { Card } from './ui/card';
 interface ChatMessage {
   type: 'user' | 'bot';
   text: string;
+  timestamp: number;
 }
 
 export function Chatbot() {
@@ -22,7 +23,11 @@ export function Chatbot() {
 
     try {
       // Add user message to chat
-      const userMessage = { type: 'user' as const, text: message };
+      const userMessage: ChatMessage = { 
+        type: 'user', 
+        text: message,
+        timestamp: Date.now()
+      };
       setMessages(prev => [...prev, userMessage]);
       setIsLoading(true);
 
@@ -40,18 +45,27 @@ export function Chatbot() {
 
       // Parse and add bot response
       const data = await response.json();
-      const botMessage = { type: 'bot' as const, text: data.solution };
-      setMessages(prev => [...prev, botMessage]);      // Clear the input after successful submission
+      const botMessage: ChatMessage = { 
+        type: 'bot', 
+        text: data.solution,
+        timestamp: Date.now()
+      };
+      setMessages(prev => [...prev, botMessage]);
       setMessage('');
     } catch (error) {
       console.error('Error sending message:', error);
-      setMessages(prev => [...prev, { type: 'bot', text: 'Sorry, I encountered an error. Please try again.' }]);
+      setMessages(prev => [...prev, { 
+        type: 'bot', 
+        text: 'Sorry, I encountered an error. Please try again.',
+        timestamp: Date.now()
+      }]);
     } finally {
       setIsLoading(false);
     }
   };
 
-  return (    <div className="fixed bottom-4 right-4 z-50">
+  return (
+    <div className="fixed bottom-4 right-4 z-50">
       <div className="relative">
         <Button
           onClick={() => setIsOpen(true)}
@@ -92,7 +106,15 @@ export function Chatbot() {
                           : 'bg-white text-gray-900 scale-100 hover:scale-[1.02]'
                       }`}
                     >
-                      {msg.text}
+                      <div className="whitespace-pre-wrap">
+                        {msg.text.split('**').map((part, i) => (
+                          i % 2 === 0 ? (
+                            <span key={i}>{part}</span>
+                          ) : (
+                            <strong key={i} className="font-bold">{part}</strong>
+                          )
+                        ))}
+                      </div>
                     </div>
                   </div>
                 ))}

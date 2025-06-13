@@ -1,7 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   // Firebase Hosting configuration
-  output: "export", // For static site generation
   distDir: ".next",
   generateBuildId: async () => {
     // You can generate a unique build ID here if needed
@@ -42,9 +41,9 @@ const nextConfig = {
   },
 
   // Optimize chunk loading and enable experimental features
-  experimental: {
-    optimizeCss: true,
-  },
+  // experimental: {
+  //   optimizeCss: true,
+  // },
 
   // Configure webpack
   webpack: (config, { dev, isServer }) => {

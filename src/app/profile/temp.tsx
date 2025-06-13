@@ -94,10 +94,10 @@ export default function ProfilePage() {
                   {userProfile?.bio || "No bio added yet"}
                 </p>
                 <div className="flex items-center text-gray-500 text-sm mb-6">                  <Calendar className="w-4 h-4 mr-2" />
-                  Joined {userProfile?.createdAt ? 
-                    (typeof userProfile.createdAt.toDate === 'function' 
-                      ? userProfile.createdAt.toDate().toLocaleDateString()
-                      : new Date(userProfile.createdAt).toLocaleDateString())
+                  Joined {userProfile?.createdAt ?
+                    (userProfile.createdAt instanceof Date
+                      ? userProfile.createdAt.toLocaleDateString()
+                      : (userProfile.createdAt as any).toDate().toLocaleDateString())
                     : "Recently"}
                 </div>
 

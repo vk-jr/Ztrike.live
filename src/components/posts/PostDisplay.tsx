@@ -3,11 +3,17 @@
 import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Heart, MessageSquare, Share2, AlertCircle } from "lucide-react";
+import { Heart, MessageSquare, Share2, AlertCircle, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getUserPosts, getNetworkPosts, getAllPosts } from '@/lib/db';
-import type { Post } from '@/types/database';
+import { likePost, unlikePost, editPost, deletePost } from '@/lib/postActions';
+import type { Post, Comment } from '@/types/database';
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
+import { useAuth } from "@/lib/auth/AuthContext";
+import CommentList from './CommentList';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import Link from "next/link";
 
 interface PostDisplayProps {
   userId: string;
@@ -16,9 +22,85 @@ interface PostDisplayProps {
 }
 
 export default function PostDisplay({ userId, showNetworkPosts = false, showAllPosts = false }: PostDisplayProps) {
+  const { user } = useAuth();
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [expandedComments, setExpandedComments] = useState<string[]>([]);
+  const [editingPost, setEditingPost] = useState<{ id: string; content: string } | null>(null);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+
+  const handleEdit = async () => {
+    if (!editingPost) return;
+    try {
+      await editPost(editingPost.id, editingPost.content);
+      setPosts(posts.map(post => 
+        post.id === editingPost.id 
+          ? { ...post, content: editingPost.content } 
+          : post
+      ));
+      setIsEditDialogOpen(false);
+      setEditingPost(null);
+    } catch (error) {
+      console.error('Error editing post:', error);
+    }
+  };
+
+  const handleDelete = async (postId: string) => {
+    if (!window.confirm('Are you sure you want to delete this post?')) return;
+    try {
+      await deletePost(postId);
+      setPosts(posts.filter(post => post.id !== postId));
+    } catch (error) {
+      console.error('Error deleting post:', error);
+    }
+  };
+
+  const handleLike = async (postId: string, isLiked: boolean) => {
+    if (!user) return;
+    try {
+      if (isLiked) {
+        await unlikePost(postId, user.uid);
+      } else {
+        await likePost(postId, user.uid);
+      }
+      // Update local state
+      setPosts(posts.map(post => {
+        if (post.id === postId) {
+          return {
+            ...post,
+            likes: isLiked ? post.likes - 1 : post.likes + 1,
+            likedBy: isLiked 
+              ? post.likedBy.filter((id: string) => id !== user.uid)
+              : [...(post.likedBy || []), user.uid]
+          };
+        }
+        return post;
+      }));
+    } catch (error) {
+      console.error('Error updating like:', error);
+    }
+  };
+
+  const toggleComments = (postId: string) => {
+    setExpandedComments(prev => 
+      prev.includes(postId) 
+        ? prev.filter(id => id !== postId)
+        : [...prev, postId]
+    );
+  };
+
+  const handleCommentAdded = (postId: string, newComment: Comment) => {
+    setPosts(posts.map(post => {
+      if (post.id === postId) {
+        return {
+          ...post,
+          comments: [...post.comments, newComment]
+        };
+      }
+      return post;
+    }));
+  };
 
   useEffect(() => {
     const fetchPosts = async () => {
@@ -87,55 +169,126 @@ export default function PostDisplay({ userId, showNetworkPosts = false, showAllP
 
   return (
     <div className="space-y-4">
-      {posts.map((post) => (
-        <Card key={post.id} className="overflow-hidden">
-          <CardHeader className="flex flex-row items-center space-x-4 p-4">
-            <Avatar>
-              <AvatarImage src={post.authorPhotoURL} />
-              <AvatarFallback>{post.authorName?.[0] || '?'}</AvatarFallback>
-            </Avatar>
-            <div>
-              <p className="font-semibold">{post.authorName}</p>              <p className="text-sm text-gray-500">
-                {post.createdAt?.toDate ? 
-                  post.createdAt.toDate().toLocaleString('en-US', {
-                    year: 'numeric',
-                    month: 'short',
-                    day: 'numeric',
-                    hour: '2-digit',
-                    minute: '2-digit'
-                  }) : 
-                  'Unknown date'}
-              </p>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <p className="mb-4 whitespace-pre-wrap">{post.content}</p>
-            {post.imageUrl && (
-              <div className="relative w-full mb-4">
-                <img
-                  src={post.imageUrl}
-                  alt="Post content"
-                  className="rounded-lg object-cover w-full max-h-[500px]"
-                />
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Post</DialogTitle>
+          </DialogHeader>
+          <Textarea
+            value={editingPost?.content || ''}
+            onChange={(e) => setEditingPost(prev => prev ? { ...prev, content: e.target.value } : null)}
+            className="min-h-[100px]"
+          />
+          <div className="flex justify-end space-x-2">
+            <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>Cancel</Button>
+            <Button onClick={handleEdit}>Save</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {posts.map((post) => {
+        console.log('Debug Post:', post);
+        return (
+          <Card key={post.id} className="overflow-hidden">
+            <CardHeader className="flex flex-row items-center justify-between p-4">
+              <Link href={`/profile/${post.authorId}`} className="flex items-center space-x-4 cursor-pointer">
+                <Avatar>
+                  <AvatarImage src={post.authorPhotoURL} />
+                  <AvatarFallback>{post.authorName?.[0] || '?'}</AvatarFallback>
+                </Avatar>
+                <div>
+                  <p className="font-semibold">{post.authorName}</p>
+                  <p className="text-sm text-gray-500">
+                    {post.createdAt instanceof Date
+                      ? post.createdAt.toLocaleString("en-US", {
+                          month: "short",
+                          day: "numeric",
+                          year: "numeric",
+                          hour: "numeric",
+                          minute: "numeric",
+                        })
+                      : (post.createdAt as any)?.toDate().toLocaleString("en-US", {
+                          month: "short",
+                          day: "numeric",
+                          year: "numeric",
+                          hour: "numeric",
+                          minute: "numeric",
+                        })}
+                  </p>
+                </div>
+              </Link>
+              {user?.uid === post.authorId && (
+                <div className="flex space-x-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setEditingPost({ id: post.id, content: post.content });
+                      setIsEditDialogOpen(true);
+                    }}
+                  >
+                    <Pencil className="w-4 h-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleDelete(post.id)}
+                    className="text-red-500 hover:text-red-700"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </div>
+              )}
+            </CardHeader>
+            <CardContent>
+              <p className="mb-4 whitespace-pre-wrap">{post.content}</p>
+              {post.imageUrl && (
+                <div className="relative w-full mb-4">
+                  <img
+                    src={post.imageUrl}
+                    alt="Post content"
+                    className="rounded-lg object-cover w-full max-h-[500px]"
+                  />
+                </div>
+              )}
+              <div className="flex items-center space-x-4 mt-4">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => handleLike(post.id, post.likedBy?.includes(user?.uid || ''))}
+                  className={post.likedBy?.includes(user?.uid || '') ? 'text-red-500' : ''}
+                >
+                  <Heart 
+                    className={`w-4 h-4 mr-2 ${post.likedBy?.includes(user?.uid || '') ? 'fill-current' : ''}`} 
+                  />
+                  {post.likes || 0}
+                </Button>
+                <Button 
+                  variant="ghost" 
+                  size="sm"
+                  onClick={() => toggleComments(post.id)}
+                >
+                  <MessageSquare className="w-4 h-4 mr-2" />
+                  {post.comments?.length || 0}
+                </Button>
+                <Button variant="ghost" size="sm">
+                  <Share2 className="w-4 h-4 mr-2" />
+                  Share
+                </Button>
               </div>
-            )}
-            <div className="flex items-center space-x-4 mt-4">
-              <Button variant="ghost" size="sm">
-                <Heart className="w-4 h-4 mr-2" />
-                {post.likes || 0}
-              </Button>
-              <Button variant="ghost" size="sm">
-                <MessageSquare className="w-4 h-4 mr-2" />
-                {post.comments?.length || 0}
-              </Button>
-              <Button variant="ghost" size="sm">
-                <Share2 className="w-4 h-4 mr-2" />
-                Share
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      ))}
+              {expandedComments.includes(post.id) && (
+                <div className="mt-4 border-t pt-4">
+                  <CommentList
+                    postId={post.id}
+                    comments={post.comments || []}
+                    onCommentAdded={(comment) => handleCommentAdded(post.id, comment)}
+                  />
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        );
+      })}
     </div>
   );
 }
