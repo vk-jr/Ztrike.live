@@ -2,10 +2,13 @@
   remote_images = ["https://source.unsplash.com/.*", "https://images.unsplash.com/.*", "https://ext.same-assets.com/.*", "https://ugc.same-assets.com/.*"]
 
 [build]
-  command = "bun run build --no-lint"
-  publish = ".next"
+  command = "pnpm install && pnpm build"
+  publish = "dist"
 
 [build.environment]
+  NODE_VERSION = "18"
+  PNPM_VERSION = "10"
+  NPM_FLAGS = "--legacy-peer-deps"
   NEXT_TELEMETRY_DISABLED = "1"
   NEXTJS_IGNORE_ESLINT = "true"
 
@@ -16,3 +19,6 @@
   from = "/*"
   to = "/index.html"
   status = 200
+
+[functions]
+  node_bundler = "esbuild"
