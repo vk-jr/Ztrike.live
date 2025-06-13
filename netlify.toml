@@ -3,14 +3,16 @@
 
 [build]
   command = "pnpm install && pnpm build"
-  publish = "dist"
+  publish = ".next"
+  ignore = "git diff --quiet $CACHED_COMMIT_REF $COMMIT_REF ./"
 
 [build.environment]
+  NEXT_TELEMETRY_DISABLED = "1"
   NODE_VERSION = "18"
   PNPM_VERSION = "10"
   NPM_FLAGS = "--legacy-peer-deps"
-  NEXT_TELEMETRY_DISABLED = "1"
   NEXTJS_IGNORE_ESLINT = "true"
+  NEXTJS_IGNORE_TYPECHECK = "true"
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"
@@ -22,3 +24,11 @@
 
 [functions]
   node_bundler = "esbuild"
+  external_node_modules = ["@firebase/*", "firebase"]
+
+[dev]
+  command = "pnpm dev"
+  port = 3000
+  targetPort = 3000
+  publish = ".next"
+  autoLaunch = true

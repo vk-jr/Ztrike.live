@@ -6,7 +6,9 @@ const nextConfig = {
     // You can generate a unique build ID here if needed
     return "build-" + Date.now();
   },
-devIndicators: false,
+  devIndicators: false,
+  poweredByHeader: false,
+  reactStrictMode: true,
   images: {
     unoptimized: true,
     domains: [
@@ -14,7 +16,7 @@ devIndicators: false,
       "images.unsplash.com",
       "ext.same-assets.com",
       "ugc.same-assets.com",
-      "firebasestorage.googleapis.com", // Add Firebase Storage domain
+      "firebasestorage.googleapis.com",
     ],
     remotePatterns: [
       {
@@ -37,12 +39,18 @@ devIndicators: false,
         hostname: "ugc.same-assets.com",
         pathname: "/**",
       },
+      {
+        protocol: "https",
+        hostname: "firebasestorage.googleapis.com",
+        pathname: "/**",
+      },
     ],
   },
 
   // Optimize chunk loading and enable experimental features
   experimental: {
     optimizeCss: true,
+    optimizePackageImports: ['@radix-ui/react-*', 'lucide-react'],
   },
 
   // Configure webpack
@@ -79,6 +87,27 @@ devIndicators: false,
         },
       };
     }
+
+    // Add fallbacks for node modules
+    if (!isServer) {
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        fs: false,
+        net: false,
+        tls: false,
+        crypto: require.resolve('crypto-browserify'),
+        stream: require.resolve('stream-browserify'),
+        url: require.resolve('url'),
+        zlib: require.resolve('browserify-zlib'),
+        http: require.resolve('stream-http'),
+        https: require.resolve('https-browserify'),
+        assert: require.resolve('assert'),
+        os: require.resolve('os-browserify'),
+        path: require.resolve('path-browserify'),
+        'process/browser': require.resolve('process/browser'),
+      };
+    }
+
     return config;
   },
 };
