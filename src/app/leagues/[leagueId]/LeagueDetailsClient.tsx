@@ -59,7 +59,7 @@ interface LeagueInfo {
 interface BaseTeam {
   id: string;
   name: string;
-  matches_played: number;
+  matches: number;
   wins: number;
   losses: number;
   points: number;
@@ -108,7 +108,7 @@ interface Player {
   name: string;
   position?: string;
   jersey_number?: string;
-  matches_played?: number;
+  matches?: number;
   MVPs?: number;
   stats?: SportStats;
   // ... other fields
@@ -173,7 +173,7 @@ export default function LeagueDetailsClient({ leagueId }: { leagueId: string }) 
           const baseTeam = {
             id: doc.id,
             name: data.name,
-            matches_played: data.matches_played || 0,
+            matches: data.matches || 0,
             wins: data.wins || 0,
             losses: data.losses || 0,
             points: data.points || 0,
@@ -195,7 +195,7 @@ export default function LeagueDetailsClient({ leagueId }: { leagueId: string }) 
               return {
                 ...baseTeam,
                 sport: 'cricket' as const,
-                NRR: data.NRR,
+                NRR: data.NRR  || 0,
               };
             case 'basketball':
               return {
@@ -217,9 +217,9 @@ export default function LeagueDetailsClient({ leagueId }: { leagueId: string }) 
               return {
                 ...baseTeam,
                 sport: 'football' as const,
-                goals_for: 0,
-                goals_against: 0,
-                goal_difference: 0,
+                goals_for: data.goals_for || 0,
+                goals_against: data.goals_against || 0,
+                goal_difference:  data.goal_difference || 0,
               };
           }
         }) as Team[];
@@ -367,7 +367,7 @@ export default function LeagueDetailsClient({ leagueId }: { leagueId: string }) 
                           <td className="px-4 py-3 text-left">{index + 1}</td>
                           <td className="px-4 py-3 text-left font-medium">{team.name}</td>
                           <td className="px-4 py-3 text-center font-semibold text-blue-600">{team.points}</td>
-                          <td className="px-4 py-3 text-center">{team.matches_played}</td>
+                          <td className="px-4 py-3 text-center">{team.matches}</td>
                           <td className="px-4 py-3 text-center text-green-600">{team.wins}</td>
                           <td className="px-4 py-3 text-center text-red-600">{team.losses}</td>
                           {/* Sport-specific data */}
@@ -380,7 +380,7 @@ export default function LeagueDetailsClient({ leagueId }: { leagueId: string }) 
                             </>
                           )}
                           {team.sport === 'cricket' && (
-                             <td className="px-4 py-3 text-center">{team.NRR?.toFixed(3) ?? '-'}</td>
+                             <td className="px-4 py-3 text-center">{typeof team.NRR === 'number' ? team.NRR.toFixed(3) : '-'}</td>
                           )}
                           {team.sport === 'basketball' && (
                             <>

@@ -25,9 +25,6 @@ export default function LeaguesPage() {
     { id: "football", name: "Football", color: "bg-blue-100 text-blue-700 border-blue-200" },
     { id: "basketball", name: "Basketball", color: "bg-orange-100 text-orange-700 border-orange-200" },
     { id: "hockey", name: "Hockey", color: "bg-purple-100 text-purple-700 border-purple-200" },
-   { id: "baseball", name: "Baseball", color: "bg-red-100 text-red-700 border-red-200" },
-    { id: "golf", name: "Golf", color: "bg-yellow-100 text-yellow-700 border-yellow-200" },
-    { id: "cycling", name: "Cycling", color: "bg-violet-100 text-violet-700 border-violet-200" },
     { id: "all", name: "All", color: "bg-gray-100 text-gray-700 border-gray-200" },
   ];
 
